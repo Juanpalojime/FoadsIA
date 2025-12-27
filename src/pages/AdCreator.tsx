@@ -26,7 +26,13 @@ const AspectButton = ({ icon: Icon, label, active, onClick }: { icon: any, label
     </Button>
 );
 
-const AdCard: React.FC<{ variation: AdVariation, isActive: boolean, onSelect: () => void }> = ({ variation, isActive, onSelect }) => (
+const AdCard: React.FC<{
+    variation: AdVariation,
+    isActive: boolean,
+    onSelect: () => void,
+    onAdjust?: () => void,
+    onUse?: () => void
+}> = ({ variation, isActive, onSelect, onAdjust, onUse }) => (
     <Card
         onClick={onSelect}
         className={cn(
@@ -45,11 +51,25 @@ const AdCard: React.FC<{ variation: AdVariation, isActive: boolean, onSelect: ()
             <h4 className="text-foreground font-bold text-sm tracking-tight mb-1 truncate">{variation.headline}</h4>
             <p className="text-muted-foreground text-[11px] leading-relaxed line-clamp-2 mb-4">{variation.description}</p>
             <div className="flex gap-2">
-                <Button variant="secondary" size="sm" className="flex-1 text-[10px] font-black uppercase tracking-widest h-8">Ajustar</Button>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 text-[10px] font-black uppercase tracking-widest h-8"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onAdjust) onAdjust();
+                    }}
+                >
+                    Ajustar
+                </Button>
                 <Button
                     variant={isActive ? "default" : "outline"}
                     size="sm"
                     className="flex-1 text-[10px] font-black uppercase tracking-widest h-8"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onUse) onUse();
+                    }}
                 >
                     {isActive ? 'Listo' : 'Usar'}
                 </Button>
@@ -133,6 +153,37 @@ export default function AdCreator() {
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const handleAdjustVariation = (index: number) => {
+        setSelectedVarIndex(index);
+        // Scroll to configuration panel
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setShowConfig(true);
+        alert(`Ajustando variación ${index + 1}. Modifica la configuración y regenera.`);
+    };
+
+    const handleUseVariation = (index: number) => {
+        setSelectedVarIndex(index);
+        alert(`Variación ${index + 1} seleccionada. Puedes previsualizarla en el panel derecho.`);
+    };
+
+    const handleExport = () => {
+        if (!selectedAd) {
+            alert('Selecciona una variación primero');
+            return;
+        }
+
+        // Aquí puedes agregar lógica de exportación real
+        const exportData = {
+            variation: selectedAd,
+            aspectRatio,
+            config,
+            exportedAt: new Date().toISOString()
+        };
+
+        console.log('Exportando campaña:', exportData);
+        alert(`¡Campaña exportada!\n\nTítulo: ${selectedAd.headline}\nFormato: ${aspectRatio}\n\nRevisa la consola para más detalles.`);
     };
 
     return (
@@ -274,6 +325,8 @@ export default function AdCreator() {
                                                 variation={v}
                                                 isActive={selectedVarIndex === idx}
                                                 onSelect={() => setSelectedVarIndex(idx)}
+                                                onAdjust={() => handleAdjustVariation(idx)}
+                                                onUse={() => handleUseVariation(idx)}
                                             />
                                         ))}
                                     </div>
@@ -319,7 +372,11 @@ export default function AdCreator() {
                 </div>
 
                 <div className="p-8 border-t border-border bg-background">
-                    <Button className="w-full py-6 rounded-xl font-black uppercase tracking-widest shadow-lg bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 text-white">
+                    <Button
+                        className="w-full py-6 rounded-xl font-black uppercase tracking-widest shadow-lg bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 text-white"
+                        onClick={handleExport}
+                        disabled={!selectedAd}
+                    >
                         Finalizar y Exportar
                         <ArrowRight size={16} className="ml-2" />
                     </Button>
