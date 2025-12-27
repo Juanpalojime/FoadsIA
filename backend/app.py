@@ -589,6 +589,151 @@ def get_avatars():
         
     return jsonify({ "status": "success", "avatars": avatars })
 
+@app.route('/voices', methods=['GET'])
+def get_voices():
+    """Retorna lista de voces disponibles de Edge TTS (Colombia y México)."""
+    voices = [
+        # Voces de Colombia
+        {
+            "id": "es-CO-GonzaloNeural",
+            "name": "Gonzalo (Colombia)",
+            "language": "es-CO",
+            "gender": "Male",
+            "country": "Colombia"
+        },
+        {
+            "id": "es-CO-SalomeNeural",
+            "name": "Salomé (Colombia)",
+            "language": "es-CO",
+            "gender": "Female",
+            "country": "Colombia"
+        },
+        # Voces de México
+        {
+            "id": "es-MX-DaliaNeural",
+            "name": "Dalia (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-JorgeNeural",
+            "name": "Jorge (México)",
+            "language": "es-MX",
+            "gender": "Male",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-BeatrizNeural",
+            "name": "Beatriz (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-CandelaNeural",
+            "name": "Candela (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-CarlotaNeural",
+            "name": "Carlota (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-CecilioNeural",
+            "name": "Cecilio (México)",
+            "language": "es-MX",
+            "gender": "Male",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-GerardoNeural",
+            "name": "Gerardo (México)",
+            "language": "es-MX",
+            "gender": "Male",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-LarissaNeural",
+            "name": "Larissa (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-LibertoNeural",
+            "name": "Liberto (México)",
+            "language": "es-MX",
+            "gender": "Male",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-LucianoNeural",
+            "name": "Luciano (México)",
+            "language": "es-MX",
+            "gender": "Male",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-MarinaNeural",
+            "name": "Marina (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-NuriaNeural",
+            "name": "Nuria (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-PelayoNeural",
+            "name": "Pelayo (México)",
+            "language": "es-MX",
+            "gender": "Male",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-RenataNeural",
+            "name": "Renata (México)",
+            "language": "es-MX",
+            "gender": "Female",
+            "country": "México"
+        },
+        {
+            "id": "es-MX-YagoNeural",
+            "name": "Yago (México)",
+            "language": "es-MX",
+            "gender": "Male",
+            "country": "México"
+        },
+        # Voces adicionales de España (como alternativa)
+        {
+            "id": "es-ES-AlvaroNeural",
+            "name": "Álvaro (España)",
+            "language": "es-ES",
+            "gender": "Male",
+            "country": "España"
+        },
+        {
+            "id": "es-ES-ElviraNeural",
+            "name": "Elvira (España)",
+            "language": "es-ES",
+            "gender": "Female",
+            "country": "España"
+        },
+    ]
+    
+    return jsonify({ "status": "success", "voices": voices })
+
+
 @app.route('/live-portrait', methods=['POST'])
 def live_portrait():
     """Endpoint simplificado para LivePortrait."""

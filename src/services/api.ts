@@ -198,6 +198,19 @@ export const api = {
         }
     },
 
+    getVoices: async (): Promise<any> => {
+        const baseUrl = getBaseUrl();
+        if (!baseUrl) throw new Error('API URL not configured');
+        try {
+            const response = await fetch(`${baseUrl}/voices`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            return response.json();
+        } catch (e: any) {
+            return { status: 'error', message: e.message };
+        }
+    },
+
     enhanceMedia: async (mediaUrl: string, type: 'image' | 'video' = 'image'): Promise<any> => {
         const baseUrl = getBaseUrl();
         if (!baseUrl) throw new Error('API URL not configured');

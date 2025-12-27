@@ -29,31 +29,42 @@ export default function CommercialVideo() {
     const [error, setError] = useState<string | null>(null);
     const [isUsingDemo, setIsUsingDemo] = useState(false);
 
-    // Fetch Avatars from Backend with fallback to demo data
+    // Fetch Avatars and Voices from Backend
     useEffect(() => {
-        const fetchAvatars = async () => {
+        const fetchData = async () => {
             try {
-                const res = await api.getAvatars();
-                if (res.status === 'success' && res.avatars && res.avatars.length > 0) {
-                    setAvatars(res.avatars);
-                    setSelectedAvatar(res.avatars[0]);
+                // Fetch Avatars
+                const avRes = await api.getAvatars();
+                if (avRes.status === 'success' && avRes.avatars && avRes.avatars.length > 0) {
+                    setAvatars(avRes.avatars);
+                    setSelectedAvatar(avRes.avatars[0]);
                     setIsUsingDemo(false);
                 } else {
-                    // Use demo data
                     setAvatars(demoData.avatars);
                     setSelectedAvatar(demoData.avatars[0]);
                     setIsUsingDemo(true);
-                    showToast('Usando avatares de demostración (backend no disponible)', 'info');
                 }
+
+                // Fetch Voices
+                const voiceRes = await api.getVoices();
+                if (voiceRes.status === 'success' && voiceRes.voices) {
+                    // Filter valid voices if needed, or use all
+                    // Assuming we have a state for voices
+                }
+
+                if (isUsingDemo) {
+                    showToast('Usando datos de demostración (backend no disponible)', 'info');
+                }
+
             } catch (err) {
-                console.warn("Failed to fetch avatars, using demo data", err);
+                console.warn("Failed to fetch data, using demo", err);
                 setAvatars(demoData.avatars);
                 setSelectedAvatar(demoData.avatars[0]);
                 setIsUsingDemo(true);
-                showToast('Usando avatares de demostración', 'info');
+                showToast('Usando datos de demostración', 'info');
             }
         };
-        fetchAvatars();
+        fetchData();
     }, []);
 
     // WebSocket Connection for Real-time Updates

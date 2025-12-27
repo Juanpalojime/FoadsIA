@@ -13,16 +13,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { soundManager } from '@/lib/sounds';
+import { useToast } from '@/components/ui/toast';
 
 export default function GenerateImages() {
+    const { showToast } = useToast();
     const [prompt, setPrompt] = useState('');
     const [aspectRatio, setAspectRatio] = useState('1:1');
     const [isGenerating, setIsGenerating] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [resultImage, setResultImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-
-    // Advanced Settings
     const [steps, setSteps] = useState(25);
     const [guidance, setGuidance] = useState(7.5);
     const [negativePrompt, setNegativePrompt] = useState('');
@@ -34,9 +34,17 @@ export default function GenerateImages() {
             const res = await api.magicPrompt(prompt);
             if (res.status === 'success' && res.prompt) {
                 setPrompt(res.prompt);
+                showToast('✨ Prompt mejorado con magia IA', 'success');
+            } else {
+                throw new Error(res.message);
             }
         } catch (err) {
-            console.error(err);
+            console.warn("Backend Magic Prompt failed, using local logic", err);
+            // Local fallback logic
+            const qualityKeywords = "masterpiece, best quality, highly detailed, professional photography, 8k uhd, sharp focus, perfect lighting";
+            const newPrompt = `${qualityKeywords}, ${prompt}, vibrant colors`;
+            setPrompt(newPrompt);
+            showToast('✨ Prompt mejorado (Modo Local)', 'info');
         } finally {
             setIsOptimizing(false);
         }
@@ -54,6 +62,7 @@ export default function GenerateImages() {
             if (response.status === 'success' && response.image) {
                 setResultImage(response.image);
                 soundManager.playSuccess();
+                showToast('🎨 Imagen generada exitosamente', 'success');
                 await db.addAsset({
                     type: 'image',
                     content: response.image,
@@ -62,10 +71,12 @@ export default function GenerateImages() {
                 });
             } else {
                 setError(response.message || 'La generación falló. Intenta con un prompt diferente.');
+                showToast(response.message || 'Error en la generación', 'error');
             }
         } catch (error) {
             console.error('Generation Error:', error);
             setError('Error de comunicación con el servidor de IA.');
+            showToast('Error de conexión con el servidor', 'error');
         } finally {
             setIsGenerating(false);
         }
