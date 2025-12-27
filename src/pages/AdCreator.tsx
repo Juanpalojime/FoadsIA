@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
+import { useToast } from '@/components/ui/toast';
 
 const AspectButton = ({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) => (
     <Button
@@ -123,6 +124,8 @@ const Mockup = ({ ad, ratio }: { ad?: AdVariation, ratio: AspectRatio }) => {
 };
 
 export default function AdCreator() {
+    const { showToast } = useToast();
+
     const [config, setConfig] = useState<AdConfig>({
         tone: 'Profesional',
         audience: 'Emprendedores',
@@ -147,9 +150,10 @@ export default function AdCreator() {
             const results = await generateAdVariations(prompt, config);
             setVariations(results);
             setSelectedVarIndex(0);
+            showToast(`✨ ${results.length} variaciones generadas exitosamente`, 'success');
         } catch (err) {
             console.error(err);
-            alert("Error al generar. Asegúrate de tener configurada la API Key de Google.");
+            showToast('Error al generar. Verifica tu API Key de Google.', 'error');
         } finally {
             setIsGenerating(false);
         }
@@ -160,17 +164,17 @@ export default function AdCreator() {
         // Scroll to configuration panel
         window.scrollTo({ top: 0, behavior: 'smooth' });
         setShowConfig(true);
-        alert(`Ajustando variación ${index + 1}. Modifica la configuración y regenera.`);
+        showToast(`Ajustando variación ${index + 1}. Modifica la configuración y regenera.`, 'info');
     };
 
     const handleUseVariation = (index: number) => {
         setSelectedVarIndex(index);
-        alert(`Variación ${index + 1} seleccionada. Puedes previsualizarla en el panel derecho.`);
+        showToast(`Variación ${index + 1} seleccionada para previsualización`, 'success');
     };
 
     const handleExport = () => {
         if (!selectedAd) {
-            alert('Selecciona una variación primero');
+            showToast('Selecciona una variación primero', 'error');
             return;
         }
 
@@ -183,7 +187,9 @@ export default function AdCreator() {
         };
 
         console.log('Exportando campaña:', exportData);
-        alert(`¡Campaña exportada!\n\nTítulo: ${selectedAd.headline}\nFormato: ${aspectRatio}\n\nRevisa la consola para más detalles.`);
+        showToast(`🎉 Campaña "${selectedAd.headline}" exportada exitosamente`, 'success');
+
+        // Aquí puedes agregar lógica real de exportación (descargar, enviar a API, etc.)
     };
 
     return (

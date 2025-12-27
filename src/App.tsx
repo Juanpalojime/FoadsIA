@@ -16,6 +16,7 @@ import BrandVault from './pages/BrandVault'
 import { ExamplePage } from './pages/ExamplePage'
 
 import { useCreditsStore } from './store/useCreditsStore'
+import { ToastProvider } from './components/ui/toast'
 
 function App() {
   const initializeCredits = useCreditsStore(state => state.initialize);
@@ -34,26 +35,28 @@ function App() {
   }, [initializeCredits]);
 
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={<Landing />} />
+    <ToastProvider>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<Landing />} />
 
-      {/* App Routes (Protected by Layout) */}
-      <Route element={<Layout />}>
-        <Route path="/home" element={<Home />} />
-        <Route path="/face-swap" element={<FaceSwap />} />
-        <Route path="/assets" element={<Assets />} />
-        <Route path="/inspiration" element={<Inspiration />} />
-        <Route path="/generate-images" element={<GenerateImages />} />
-        <Route path="/generate-videos" element={<GenerateVideos />} />
-        <Route path="/commercial-video" element={<CommercialVideo />} />
-        <Route path="/ad-creator" element={<AdCreator />} />
-        <Route path="/canvas-editor" element={<CanvasEditor />} />
-        <Route path="/brand-vault" element={<BrandVault />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/example" element={<ExamplePage />} />
-      </Route>
-    </Routes>
+        {/* App Routes (Protected by Layout) */}
+        <Route element={<Layout />}>
+          <Route path="/home" element={<Home />} />
+          <Route path="/face-swap" element={<FaceSwap />} />
+          <Route path="/assets" element={<Assets />} />
+          <Route path="/inspiration" element={<Inspiration />} />
+          <Route path="/generate-images" element={<GenerateImages />} />
+          <Route path="/generate-videos" element={<GenerateVideos />} />
+          <Route path="/commercial-video" element={<CommercialVideo />} />
+          <Route path="/ad-creator" element={<AdCreator />} />
+          <Route path="/canvas-editor" element={<CanvasEditor />} />
+          <Route path="/brand-vault" element={<BrandVault />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/example" element={<ExamplePage />} />
+        </Route>
+      </Routes>
+    </ToastProvider>
   )
 }
 
