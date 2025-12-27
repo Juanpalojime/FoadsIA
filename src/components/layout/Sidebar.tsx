@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Zap, Settings, LogOut, Folder, Sparkles, MonitorPlay } from 'lucide-react';
+import { Home, Zap, Settings, LogOut, Folder, Sparkles, MonitorPlay, Image as ImageIcon, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import '../../styles/variables.css';
@@ -20,14 +20,17 @@ const menuGroups: MenuGroup[] = [
         title: 'CREATION HUB',
         items: [
             { path: '/home', icon: Home, label: 'Inicio' },
-            { path: '/generate-images', icon: Sparkles, label: 'Generador Pro' },
+            { path: '/ad-creator', icon: Sparkles, label: 'Creative Studio' },
+            { path: '/generate-images', icon: ImageIcon, label: 'Generador Pro' },
+            { path: '/canvas-editor', icon: Layers, label: 'Canvas Editor' },
             { path: '/commercial-video', icon: MonitorPlay, label: 'Video Comercial' },
             { path: '/face-swap', icon: Zap, label: 'Face Swap Lab' },
         ]
     },
     {
-        title: 'ASSETS',
+        title: 'ASSETS & BRAND',
         items: [
+            { path: '/brand-vault', icon: Sparkles, label: 'Brand Vault' },
             { path: '/assets', icon: Folder, label: 'Mis Archivos' },
         ]
     }

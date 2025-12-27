@@ -1,0 +1,9 @@
+
+{
+  "name": "ENFOADS AI - Ad Creator",
+  "description": "A sophisticated AI-powered advertisement creator platform with deep customization for objectives, visual styles, and dimensions.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

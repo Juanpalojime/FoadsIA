@@ -1,6 +1,6 @@
 
 const getBaseUrl = () => {
-    return localStorage.getItem('FOADS_API_URL') || '';
+    return localStorage.getItem('FOADS_API_URL') || 'https://bernardina-overslow-tonie.ngrok-free.dev';
 };
 
 export interface GenerateImageResponse {

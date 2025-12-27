@@ -1,0 +1,9 @@
+
+{
+  "name": "ENFOADS AI - Video Creator",
+  "description": "Enterprise-grade AI platform to transform static assets into high-performance video ads using advanced Gemini video generation models.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

@@ -300,50 +300,15 @@ def get_avatars():
     return jsonify({ "status": "success", "avatars": avatars })
 
 if __name__ == '__main__':
-    import sys
+    print("\n" + "="*60)
+    print("🚀 SERVIDOR FLASK INICIADO EN PUERTO 5000")
+    print("="*60 + "\n")
     
-    # Configure ngrok
     try:
-        # Check if token is configured
-        from pyngrok import conf
-        auth_token = conf.get_default().auth_token
-        
-        if not auth_token:
-            print("\n" + "="*60)
-            print("⚠️  ADVERTENCIA: Token de Ngrok no configurado")
-            print("="*60)
-            print("La conexión funcionará pero con limitaciones.")
-            print("Configura tu token en la Celda 2 del notebook.")
-            print("="*60 + "\n")
-        
-        # Start ngrok tunnel
-        print("\n🔗 Iniciando túnel Ngrok...")
-        public_url = ngrok.connect(5000).public_url
-        
-        print("\n" + "="*60)
-        print("✅ SERVIDOR INICIADO EXITOSAMENTE")
-        print("="*60)
-        print(f"\n📡 URL Pública de Ngrok:")
-        print(f"   {public_url}")
-        print(f"\n📋 Copia esta URL y pégala en Settings de tu app frontend")
-        print("="*60 + "\n")
-        
-    except Exception as e:
-        print("\n" + "="*60)
-        print("❌ ERROR AL INICIAR NGROK")
-        print("="*60)
-        print(f"Error: {str(e)}")
-        print("\n💡 Posibles soluciones:")
-        print("   1. Verifica tu conexión a internet")
-        print("   2. Configura tu token en la Celda 2")
-        print("   3. Reinicia el runtime de Colab")
-        print("="*60 + "\n")
-        sys.exit(1)
-    
-    # Start Flask server
-    try:
+        # Ejecutamos Flask con SocketIO
         socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
     except KeyboardInterrupt:
         print("\n\n🛑 Servidor detenido por el usuario")
     except Exception as e:
         print(f"\n❌ Error al iniciar servidor: {e}")
+

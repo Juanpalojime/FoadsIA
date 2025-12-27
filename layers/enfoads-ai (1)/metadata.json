@@ -1,0 +1,9 @@
+
+{
+  "name": "ENFOADS AI",
+  "description": "A high-performance AI-powered ad creation platform for generating marketing copy and visual creatives.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

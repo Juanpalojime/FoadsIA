@@ -1,0 +1,8 @@
+
+{
+  "name": "ENFOADS AI - Ad Generator Studio",
+  "description": "An advanced AI-powered ad creation platform that helps brands generate creative visual content, ad copy, and platform-specific previews using Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

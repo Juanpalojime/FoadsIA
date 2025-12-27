@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Cpu, Bell, User } from 'lucide-react';
-import { api } from '../services/api';
+import { api } from '../../services/api';
 import clsx from 'clsx';
-import '../styles/variables.css';
+import '../../styles/variables.css';
 
 export default function TopBar() {
     const [gpuStatus, setGpuStatus] = useState<any>(null);

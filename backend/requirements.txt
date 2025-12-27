@@ -10,9 +10,34 @@ diffusers
 transformers
 accelerate
 insightface
-onnxruntime-gpu
+onnxruntime
 opencv-python-headless
 huggingface_hub
 faster-whisper
 moviepy
 imageio-ffmpeg
+einops
+onnx
+protobuf
+Pillow
+requests
+tqdm
+funsd
+altair
+pydantic
+python-multipart
+python-dotenv
+uvicorn
+jinja2
+itsdangerous
+MarkupSafe
+Werkzeug
+numpy
+scipy
+matplotlib
+pandas
+scikit-learn
+scikit-image
+numba
+onnxruntime-gpu; platform_system == 'Linux'
+onnxruntime; platform_system == 'Windows'

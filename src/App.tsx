@@ -10,6 +10,9 @@ import Landing from './pages/Landing'
 import CommercialVideo from './pages/CommercialVideo'
 import GenerateVideos from './pages/GenerateVideos'
 import Inspiration from './pages/Inspiration'
+import AdCreator from './pages/AdCreator'
+import CanvasEditor from './pages/CanvasEditor'
+import BrandVault from './pages/BrandVault'
 
 import { useCreditsStore } from './store/useCreditsStore'
 
@@ -34,6 +37,9 @@ function App() {
         <Route path="/generate-images" element={<GenerateImages />} />
         <Route path="/generate-videos" element={<GenerateVideos />} />
         <Route path="/commercial-video" element={<CommercialVideo />} />
+        <Route path="/ad-creator" element={<AdCreator />} />
+        <Route path="/canvas-editor" element={<CanvasEditor />} />
+        <Route path="/brand-vault" element={<BrandVault />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>

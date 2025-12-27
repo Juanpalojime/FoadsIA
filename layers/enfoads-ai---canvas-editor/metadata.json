@@ -1,0 +1,9 @@
+
+{
+  "name": "ENFOADS AI - Canvas Editor",
+  "description": "A high-fidelity AI-powered creative studio for ad composition and generative editing.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
