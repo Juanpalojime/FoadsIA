@@ -1,10 +1,10 @@
+
 import { useState } from 'react';
-import { Sparkles, Image as ImageIcon, Wand2, Download, Settings2, ChevronDown, RefreshCw, AlertCircle } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Wand2, Download, Settings2, ChevronDown, RefreshCw, AlertCircle, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { db } from '../services/db';
-import '../styles/variables.css';
 
 export default function GenerateImages() {
     const [prompt, setPrompt] = useState('');
@@ -64,18 +64,20 @@ export default function GenerateImages() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto h-full flex flex-col gap-6">
-            <header className="flex flex-col gap-1">
-                <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
-                    <Sparkles className="text-[var(--primary)]" />
-                    Generador de Imágenes Pro
-                </h1>
-                <p className="text-[var(--text-secondary)]">Crea visuales fotorrealistas con Juggernaut XL v9</p>
+        <div className="flex flex-col gap-8 pb-12">
+            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-black mb-1 flex items-center gap-3">
+                        <Sparkles className="text-[var(--primary)] drop-shadow-[0_0_8px_var(--primary-glow)]" />
+                        Imagen Pro Hub
+                    </h1>
+                    <p className="text-[var(--text-secondary)] font-medium">Renderizado fotorrealista de alto nivel impulsado por SDXL.</p>
+                </div>
                 {error && (
                     <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-500 text-xs font-bold"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-red-500 text-xs font-bold shadow-lg"
                     >
                         <AlertCircle size={14} />
                         {error}
@@ -83,62 +85,68 @@ export default function GenerateImages() {
                 )}
             </header>
 
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Left: Controls */}
-                <div className="lg:col-span-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-2">
-                    <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl p-5 flex flex-col gap-4">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-[var(--text-secondary)] flex justify-between">
-                                Prompt
+                <aside className="lg:col-span-4 space-y-6">
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-[2.5rem] p-8 space-y-8 shadow-2xl overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/5 blur-3xl rounded-full translate-x-10 -translate-y-10 group-hover:scale-150 transition-transform duration-1000" />
+
+                        <div className="flex flex-col gap-4 relative z-10">
+                            <div className="flex justify-between items-center px-1">
+                                <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-[0.2em]">Prompt Creativo</label>
                                 <button
                                     onClick={handleMagicPrompt}
                                     disabled={!prompt || isOptimizing}
-                                    className="text-[var(--primary)] text-xs flex items-center gap-1 hover:underline disabled:opacity-50 disabled:no-underline"
+                                    className="px-3 py-1 bg-[var(--primary)]/10 text-[var(--primary)] text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-1.5 hover:bg-[var(--primary)]/20 transition-all disabled:opacity-30 active:scale-95"
                                 >
                                     {isOptimizing ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                                    Magic Prompt
+                                    Mejorar con AI
                                 </button>
-                            </label>
+                            </div>
                             <textarea
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
-                                placeholder="Ej: Un astronauta montando un caballo en Marte, estilo cinematográfico..."
-                                className="w-full h-32 bg-[var(--bg-input)] border border-[var(--border-light)] rounded-xl p-3 text-sm focus:border-[var(--primary)] outline-none resize-none transition-all leading-relaxed"
+                                placeholder="Escribe tu visión aquí... (ej: 'Un deportivo futurista atravesando la ciudad neon en lluvia')"
+                                className="w-full h-40 bg-[var(--bg-input)]/50 border border-[var(--border-light)] rounded-2xl p-5 text-sm font-medium focus:border-[var(--primary)]/50 outline-none resize-none transition-all leading-relaxed shadow-inner placeholder:text-[var(--text-tertiary)]/50"
                             />
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-[var(--text-secondary)] text-left">Relación de Aspecto</label>
-                            <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-col gap-4 relative z-10">
+                            <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-[0.2em] px-1">Formato de Salida</label>
+                            <div className="grid grid-cols-3 gap-3">
                                 {[
-                                    { id: '1:1', label: '1:1 Square' },
-                                    { id: '16:9', label: '16:9 Ciné' },
-                                    { id: '9:16', label: '9:16 Reel' },
+                                    { id: '1:1', label: '1:1', desc: 'SQUARE' },
+                                    { id: '16:9', label: '16:9', desc: 'CINÉ' },
+                                    { id: '9:16', label: '9:16', desc: 'REEL/STORY' },
                                 ].map((ratio) => (
                                     <button
                                         key={ratio.id}
                                         onClick={() => setAspectRatio(ratio.id)}
                                         className={clsx(
-                                            'py-2.5 rounded-xl border text-xs font-medium transition-all',
+                                            'flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border transition-all transform active:scale-95',
                                             aspectRatio === ratio.id
-                                                ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-[var(--shadow-glow)]'
-                                                : 'bg-[var(--bg-input)] border-[var(--border-light)] text-[var(--text-secondary)] hover:border-[var(--primary)]/50'
+                                                ? 'bg-gradient-to-tr from-[var(--primary)] to-[var(--accent)] border-transparent text-white shadow-lg shadow-[var(--primary-glow)]'
+                                                : 'bg-[var(--bg-input)] border-[var(--border-light)] text-[var(--text-tertiary)] hover:border-white/20'
                                         )}
                                     >
-                                        {ratio.label}
+                                        <span className="text-xs font-black">{ratio.label}</span>
+                                        <span className="text-[9px] font-bold opacity-60 tracking-tighter">{ratio.desc}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
                         {/* Advanced Settings */}
-                        <div className="border-t border-[var(--border-light)] pt-4">
+                        <div className="border-t border-[var(--border-light)] pt-6 relative z-10">
                             <button
                                 onClick={() => setShowAdvanced(!showAdvanced)}
-                                className="w-full flex items-center justify-between text-xs font-bold text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors uppercase tracking-widest"
+                                className="w-full flex items-center justify-between text-[10px] font-black text-[var(--text-tertiary)] hover:text-white transition-colors uppercase tracking-[0.2em] px-1 group/btn"
                             >
-                                <span className="flex items-center gap-1.5"><Settings2 size={14} /> Configuración Avanzada</span>
-                                <ChevronDown size={14} className={clsx("transition-transform", showAdvanced && "rotate-180")} />
+                                <span className="flex items-center gap-2">
+                                    <Settings2 size={14} className="group-hover/btn:rotate-90 transition-transform duration-500" />
+                                    Avanzado
+                                </span>
+                                <ChevronDown size={14} className={clsx("transition-transform duration-500", showAdvanced && "rotate-180")} />
                             </button>
 
                             <AnimatePresence>
@@ -149,36 +157,36 @@ export default function GenerateImages() {
                                         exit={{ height: 0, opacity: 0 }}
                                         className="overflow-hidden"
                                     >
-                                        <div className="py-4 space-y-4">
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-[10px] text-[var(--text-secondary)]">
-                                                    <span>PASOS (STEPS)</span>
-                                                    <span>{steps}</span>
+                                        <div className="py-6 space-y-6">
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest px-1">
+                                                    <span>Quality Steps</span>
+                                                    <span className="text-[var(--primary)]">{steps}</span>
                                                 </div>
                                                 <input
                                                     type="range" min="1" max="50" value={steps}
                                                     onChange={(e) => setSteps(parseInt(e.target.value))}
-                                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
+                                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-full appearance-none cursor-pointer accent-[var(--primary)]"
                                                 />
                                             </div>
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-[10px] text-[var(--text-secondary)]">
-                                                    <span>GUIDANCE SCALE</span>
-                                                    <span>{guidance}</span>
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest px-1">
+                                                    <span>Prompt Strength</span>
+                                                    <span className="text-[var(--primary)]">{guidance}</span>
                                                 </div>
                                                 <input
                                                     type="range" min="0" max="10" step="0.5" value={guidance}
                                                     onChange={(e) => setGuidance(parseFloat(e.target.value))}
-                                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
+                                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-full appearance-none cursor-pointer accent-[var(--primary)]"
                                                 />
                                             </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] text-[var(--text-secondary)] uppercase font-bold">Negative Prompt</label>
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest px-1">Filtro Negativo</label>
                                                 <textarea
                                                     value={negativePrompt}
                                                     onChange={(e) => setNegativePrompt(e.target.value)}
-                                                    placeholder="Ej: deformidades, borroso, baja calidad..."
-                                                    className="w-full h-20 bg-[var(--bg-input)] border border-[var(--border-light)] rounded-lg p-2 text-xs focus:border-[var(--primary)] outline-none resize-none transition-all"
+                                                    placeholder="Ej: borroso, deforme, texto, marca de agua..."
+                                                    className="w-full h-24 bg-[var(--bg-input)] border border-[var(--border-light)] rounded-2xl p-4 text-xs font-medium focus:border-[var(--primary)]/50 outline-none resize-none transition-all shadow-inner"
                                                 />
                                             </div>
                                         </div>
@@ -190,74 +198,100 @@ export default function GenerateImages() {
                         <button
                             onClick={handleGenerate}
                             disabled={!prompt || isGenerating}
-                            className="w-full py-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50 text-white rounded-xl font-bold transition-all shadow-[var(--shadow-glow)] flex items-center justify-center gap-2 mt-2"
+                            className="w-full py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] disabled:opacity-30 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl shadow-[var(--primary-glow)] flex items-center justify-center gap-3 mt-4 active:scale-95 group overflow-hidden relative"
                         >
+                            <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                             {isGenerating ? (
                                 <>
-                                    <RefreshCw className="animate-spin" size={20} />
-                                    Generando...
+                                    <RefreshCw className="animate-spin" size={18} />
+                                    Renderizando...
                                 </>
                             ) : (
                                 <>
-                                    <ImageIcon size={20} />
-                                    Generar Imagen
+                                    <Sparkles size={18} />
+                                    Generar Píxeles
                                 </>
                             )}
                         </button>
                     </div>
-                </div>
+                </aside>
 
                 {/* Right: Results */}
-                <div className="lg:col-span-8 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl overflow-hidden relative flex flex-col min-h-[400px]">
-                    {!resultImage && !isGenerating ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-tertiary)] p-12 text-center">
-                            <div className="w-16 h-16 bg-[var(--bg-input)] rounded-full flex items-center justify-center mb-4">
-                                <ImageIcon size={32} opacity={0.2} />
-                            </div>
-                            <p className="text-sm">Tu creación aparecerá aquí</p>
-                            <p className="text-xs max-w-xs mt-2">Describe algo increíble y deja que la IA haga el resto.</p>
-                        </div>
-                    ) : (
-                        <div className="flex-1 relative flex items-center justify-center p-4 bg-[var(--bg-input)]/30">
-                            {isGenerating && (
-                                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
-                                    <motion.div
-                                        animate={{ rotate: 360 }}
-                                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                        className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full mb-4"
-                                    />
-                                    <span className="text-sm font-medium">Renderizando píxeles...</span>
+                <main className="lg:col-span-8">
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-[3rem] overflow-hidden relative flex flex-col min-h-[500px] lg:h-[750px] shadow-2xl group/result">
+                        {!resultImage && !isGenerating ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-tertiary)] p-12 text-center select-none">
+                                <div className="w-24 h-24 bg-white/5 rounded-[2rem] flex items-center justify-center mb-8 border border-white/5 shadow-inner group-hover/result:scale-110 transition-transform duration-700">
+                                    <ImageIcon size={40} className="opacity-10" />
                                 </div>
-                            )}
-                            {resultImage && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="h-full w-full flex items-center justify-center"
-                                >
-                                    <img
-                                        src={resultImage}
-                                        alt="Generated content"
-                                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                                    />
-                                    {/* Download Button Overlay */}
-                                    <button
-                                        className="absolute bottom-6 right-6 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all border border-white/20 shadow-xl"
-                                        title="Descargar Imagen"
-                                        onClick={() => {
-                                            const link = document.createElement('a');
-                                            link.href = resultImage;
-                                            link.download = `EnfoadsIA-${Date.now()}.png`;
-                                            link.click();
-                                        }}
+                                <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tight">Estudio en Espera</h3>
+                                <p className="text-sm max-w-xs font-medium opacity-50">Configura tu prompt y presiona generar para ver la magia de Juggernaut XL.</p>
+                            </div>
+                        ) : (
+                            <div className="flex-1 relative flex items-center justify-center p-6 bg-black/40">
+                                <AnimatePresence>
+                                    {isGenerating && (
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[var(--bg-main)]/80 backdrop-blur-xl"
+                                        >
+                                            <div className="relative w-24 h-24 mb-8">
+                                                <div className="absolute inset-0 border-4 border-[var(--primary)]/10 rounded-full"></div>
+                                                <div className="absolute inset-0 border-4 border-t-[var(--primary)] border-r-[var(--accent)] rounded-full animate-spin"></div>
+                                                <div className="absolute inset-4 bg-gradient-to-tr from-[var(--primary)]/20 to-[var(--accent)]/20 rounded-full flex items-center justify-center">
+                                                    <RefreshCw size={24} className="text-white animate-pulse" />
+                                                </div>
+                                            </div>
+                                            <span className="text-base font-black uppercase tracking-[0.25em] text-white">Generando Neuronal...</span>
+                                            <p className="text-xs text-[var(--text-tertiary)] mt-2 font-bold uppercase tracking-widest">Ajustando VRAM & Parámetros</p>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                {resultImage && !isGenerating && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, filter: 'blur(20px)' }}
+                                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                                        transition={{ duration: 0.8, ease: "easeOut" }}
+                                        className="h-full w-full flex items-center justify-center relative"
                                     >
-                                        <Download size={20} />
-                                    </button>
-                                </motion.div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                                        <img
+                                            src={resultImage}
+                                            alt="Generated content"
+                                            className="max-w-full max-h-full object-contain rounded-2xl shadow-[0_0_100px_-20px_var(--primary-glow)]"
+                                        />
+
+                                        {/* Action Controls */}
+                                        <div className="absolute bottom-8 right-8 flex gap-4">
+                                            <button
+                                                className="p-4 bg-[var(--bg-card)]/80 hover:bg-white hover:text-black backdrop-blur-xl rounded-2xl text-white transition-all border border-white/10 shadow-2xl active:scale-90"
+                                                title="Maximizar"
+                                                onClick={() => window.open(resultImage, '_blank')}
+                                            >
+                                                <Maximize2 size={20} />
+                                            </button>
+                                            <button
+                                                className="p-4 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] backdrop-blur-xl rounded-2xl text-white transition-all shadow-2xl shadow-[var(--primary-glow)] hover:scale-105 active:scale-90 flex items-center gap-2"
+                                                title="Descargar Alta Resolución"
+                                                onClick={() => {
+                                                    const link = document.createElement('a');
+                                                    link.href = resultImage;
+                                                    link.download = `EnfoadsIA-PRO-${Date.now()}.png`;
+                                                    link.click();
+                                                }}
+                                            >
+                                                <Download size={20} />
+                                                <span className="text-xs font-black uppercase tracking-widest">HD</span>
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </main>
             </div>
         </div>
     );

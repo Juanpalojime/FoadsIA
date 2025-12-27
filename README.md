@@ -5,11 +5,15 @@ EnfoadsIA es una plataforma completa para generar imágenes y videos usando mode
 ## 🎯 Características
 
 - **Generación de Imágenes**: SDXL Lightning (4 pasos, ultra-rápido)
+- **Magic Prompt**: Mejora automática de prompts con IA
+- **Face Swap**: Intercambio de rostros usando InsightFace
 - **Generación de Videos**: Avatares con voz y subtítulos automáticos
-- **Face Swap**: Intercambio de rostros en imágenes
 - **Multi-Escena**: Creación de videos comerciales con múltiples escenas
 - **Biblioteca de Assets**: Gestión de contenido generado
+- **Monitoreo GPU**: Dashboard en tiempo real de uso de VRAM
 - **Optimización VRAM**: Gestión inteligente de memoria para GPU T4
+- **Pre-descarga de Modelos**: Sistema automático de caché
+
 
 ## 📁 Estructura del Proyecto
 
@@ -45,14 +49,20 @@ npx vitest run
 
 ### Opción 2: Backend en Google Colab (Recomendado)
 
-1. **Abre el notebook**: `backend/Enfoads_Colab.ipynb` en Google Colab
+1. **Abre el notebook**: 
+   - **v2.0 (Recomendado)**: `backend/Enfoads_Colab_v2.ipynb` 
+   - **v1.0 (Original)**: `backend/Enfoads_Colab.ipynb`
 2. **Configura GPU**: Runtime → Change runtime type → GPU (T4)
 3. **Ejecuta las celdas** en orden:
    - Celda 1: Instala dependencias y clona el repositorio
-   - Celda 2: Configura tu token de Ngrok
-   - Celda 3: Inicia el servidor
+   - Celda 1.5 (Solo v2.0): Pre-descarga modelos para evitar esperas
+   - Celda 2: Configura tu token de Ngrok e inicia el servidor
+   - Celda 3 (Opcional): Diagnóstico del sistema
 4. **Copia la URL de Ngrok** que aparece en la salida
 5. **Configura el frontend**: Ve a Settings y pega la URL
+
+**💡 Tip**: Usa el notebook v2.0 y ejecuta la celda 1.5 de pre-descarga para ahorrar 5-10 minutos en la primera generación.
+
 
 ### Opción 3: Backend Local (Desarrollo)
 

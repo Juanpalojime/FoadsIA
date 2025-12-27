@@ -18,13 +18,13 @@ describe('GenerateImages Page', () => {
 
     it('renders correctly', () => {
         render(<GenerateImages />);
-        expect(screen.getByText(/Generador de Imágenes Pro/i)).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/Ej: Un astronauta/i)).toBeInTheDocument();
+        expect(screen.getByText(/Imagen Pro Hub/i)).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(/Escribe tu visión aquí/i)).toBeInTheDocument();
     });
 
     it('shows error if prompt is empty when generating', async () => {
         render(<GenerateImages />);
-        const genButton = screen.getByText(/Generar Imagen/i);
+        const genButton = screen.getByText(/Generar Píxeles/i);
         // Button is disabled if prompt is empty
         expect(genButton).toBeDisabled();
     });
@@ -36,10 +36,10 @@ describe('GenerateImages Page', () => {
         });
 
         render(<GenerateImages />);
-        const textarea = screen.getByPlaceholderText(/Ej: Un astronauta/i);
+        const textarea = screen.getByPlaceholderText(/Escribe tu visión aquí/i);
         fireEvent.change(textarea, { target: { value: 'A cool dog' } });
 
-        const genButton = screen.getByText(/Generar Imagen/i);
+        const genButton = screen.getByText(/Generar Píxeles/i);
         fireEvent.click(genButton);
 
         await waitFor(() => {
@@ -54,10 +54,10 @@ describe('GenerateImages Page', () => {
         });
 
         render(<GenerateImages />);
-        const textarea = screen.getByPlaceholderText(/Ej: Un astronauta/i);
+        const textarea = screen.getByPlaceholderText(/Escribe tu visión aquí/i);
         fireEvent.change(textarea, { target: { value: 'A cool dog' } });
 
-        const genButton = screen.getByText(/Generar Imagen/i);
+        const genButton = screen.getByText(/Generar Píxeles/i);
         fireEvent.click(genButton);
 
         await waitFor(() => {

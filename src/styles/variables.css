@@ -1,62 +1,82 @@
 :root {
-  /* Brand Colors */
-  --primary: #6366f1; /* Indigo 500 */
-  --primary-hover: #4f46e5; /* Indigo 600 */
-  --primary-glow: rgba(99, 102, 241, 0.4);
+  /* Brand Colors - Hyper Premium */
+  --primary: #8b5cf6; /* Violet 500 */
+  --primary-hover: #7c3aed; /* Violet 600 */
+  --primary-glow: rgba(139, 92, 246, 0.4);
+  
+  --accent: #ec4899; /* Pink 500 */
+  --accent-hover: #db2777; /* Pink 600 */
+  --accent-glow: rgba(236, 72, 153, 0.4);
 
-  /* Backgrounds - Premium Dark (Obsidian) */
-  --bg-main: #09090b; /* Zinc 950 - Deepest Black */
-  --bg-card: #18181b; /* Zinc 900 - Card Surface */
-  --bg-hover: #27272a; /* Zinc 800 */
-  --bg-input: #121214;
+  /* Gradients */
+  --grad-primary: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  --grad-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+  --grad-dark: linear-gradient(180deg, #18181b 0%, #09090b 100%);
 
-  /* Text Colors */
-  --text-primary: #f4f4f5; /* Zinc 100 */
-  --text-secondary: #a1a1aa; /* Zinc 400 */
-  --text-tertiary: #52525b; /* Zinc 600 */
+  /* Backgrounds - Obsidian Deep */
+  --bg-main: #020203; 
+  --bg-sidebar: #09090b;
+  --bg-card: rgba(20, 20, 23, 0.6);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-input: #0c0c0e;
+
+  /* Text Colors - Ultra Contrast */
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-accent: #f472b6;
 
   /* Borders & Accents */
-  --border-light: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(99, 102, 241, 0.5);
+  --border-light: rgba(255, 255, 255, 0.06);
+  --border-active: rgba(139, 92, 246, 0.4);
+  --border-glow: rgba(255, 255, 255, 0.1);
 
-  /* Status Colors */
-  --success: #10b981; /* Emerald 500 */
-  --warning: #f59e0b; /* Amber 500 */
-  --danger: #ef4444; /* Red 500 */
-
-  /* Spacing */
+  /* Spacing - Responsive Tokens */
+  --space-xxs: 0.125rem;
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --space-lg: 1.5rem;
-  --space-xl: 2.5rem;
+  --space-xl: 3rem;
+  --space-2xl: 5rem;
   
   /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
   --radius-full: 9999px;
 
   /* Transitions */
-  --transition-fast: 0.15s ease;
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Shadows - Glassmorphism */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-glow: 0 0 15px var(--primary-glow);
+  /* Shadows & Effects */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px var(--primary-glow);
+  --shadow-accent: 0 0 20px var(--accent-glow);
 }
 
-/* Glass Effect */
-.glass-panel {
-  background: rgba(24, 24, 27, 0.7);
+/* Base Classes for Glassmorphism */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-md);
+}
+
+.glass-header {
+  background: rgba(9, 9, 11, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
 }
 
-.glass-morphism {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+.hover-glow:hover {
+  box-shadow: var(--shadow-glow);
+  border-color: var(--border-active);
+  transform: translateY(-2px);
 }

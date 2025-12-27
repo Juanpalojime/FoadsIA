@@ -20,9 +20,9 @@ describe('Home Page', () => {
             </BrowserRouter>
         );
 
-        expect(screen.getByText(/Bienvenido a EnfoadsIA/i)).toBeInTheDocument();
-        expect(screen.getByText(/Avatar de Video/i)).toBeInTheDocument();
-        expect(screen.getByText(/Face Swap/i)).toBeInTheDocument();
+        expect(screen.getByText(/Bienvenido a la Nueva Era de Creación/i)).toBeInTheDocument();
+        expect(screen.getByText(/Avatar Studio/i)).toBeInTheDocument();
+        expect(screen.getByText(/Face Swap Lab/i)).toBeInTheDocument();
     });
 
     it('contains correctly linked feature cards', () => {
@@ -33,6 +33,6 @@ describe('Home Page', () => {
         );
 
         expect(screen.getByText(/Video Comercial/i)).toBeInTheDocument();
-        expect(screen.getByText(/Inspiración/i)).toBeInTheDocument();
+        expect(screen.getByText(/Creative Studio/i)).toBeInTheDocument();
     });
 });

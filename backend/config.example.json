@@ -1,0 +1,117 @@
+{
+    "system": {
+        "name": "EnfoadsIA",
+        "version": "2.0.0",
+        "environment": "colab_t4",
+        "debug": false
+    },
+    "models": {
+        "sdxl": {
+            "enabled": true,
+            "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
+            "lightning_repo": "ByteDance/SDXL-Lightning",
+            "lightning_checkpoint": "sdxl_lightning_4step_unet.safetensors",
+            "default_steps": 4,
+            "default_guidance": 0,
+            "torch_dtype": "float16",
+            "variant": "fp16"
+        },
+        "whisper": {
+            "enabled": true,
+            "model_size": "base",
+            "device": "cuda",
+            "compute_type": "float16",
+            "beam_size": 5
+        },
+        "insightface": {
+            "enabled": true,
+            "model_name": "buffalo_l",
+            "det_size": [
+                640,
+                640
+            ],
+            "swapper_model": "inswapper_128.onnx"
+        }
+    },
+    "vram": {
+        "auto_offload": true,
+        "max_models_in_vram": 1,
+        "clear_cache_after_generation": true,
+        "reserved_buffer_gb": 2.0
+    },
+    "generation": {
+        "image": {
+            "max_width": 1024,
+            "max_height": 1024,
+            "default_aspect_ratio": "1:1",
+            "supported_ratios": [
+                "1:1",
+                "16:9",
+                "9:16",
+                "4:3",
+                "3:4"
+            ],
+            "timeout_seconds": 30
+        },
+        "video": {
+            "max_duration_seconds": 60,
+            "default_fps": 30,
+            "audio_sample_rate": 44100,
+            "timeout_seconds": 120
+        },
+        "face_swap": {
+            "max_image_size": 2048,
+            "timeout_seconds": 15
+        }
+    },
+    "magic_prompt": {
+        "enabled": true,
+        "use_model": false,
+        "quality_keywords": "masterpiece, best quality, highly detailed, professional photography, 8k uhd, sharp focus, perfect lighting",
+        "portrait_keywords": "beautiful detailed eyes, detailed face, cinematic lighting, bokeh background",
+        "general_keywords": "vibrant colors, professional composition"
+    },
+    "server": {
+        "host": "0.0.0.0",
+        "port": 5000,
+        "debug": false,
+        "cors_origins": "*",
+        "socketio_async_mode": "threading"
+    },
+    "storage": {
+        "data_dir": "data",
+        "assets_file": "data/assets.json",
+        "cache_dir": "data/cache",
+        "max_cache_size_gb": 5.0,
+        "auto_cleanup": true
+    },
+    "ngrok": {
+        "enabled": true,
+        "auth_token": "YOUR_NGROK_TOKEN_HERE",
+        "region": "us",
+        "bind_tls": true
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "[%(levelname)s] %(asctime)s - %(message)s",
+        "log_file": "data/app.log",
+        "max_file_size_mb": 10,
+        "backup_count": 3
+    },
+    "limits": {
+        "max_queue_size": 100,
+        "max_concurrent_jobs": 1,
+        "job_timeout_seconds": 300,
+        "max_prompt_length": 500
+    },
+    "features": {
+        "image_generation": true,
+        "video_generation": true,
+        "face_swap": true,
+        "magic_prompt": true,
+        "subtitles": true,
+        "multi_scene": true,
+        "upscaling": false,
+        "controlnet": false
+    }
+}

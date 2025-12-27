@@ -254,7 +254,83 @@ def load_sdxl_model():
     pipe_image.to("cuda")
     return pipe_image
 
+@app.route('/magic-prompt', methods=['POST'])
+def magic_prompt():
+    """Enhance user prompts with quality keywords and artistic style."""
+    try:
+        data = request.json
+        prompt = data.get('prompt', '').strip()
+        
+        if not prompt:
+            return jsonify({"status": "error", "message": "Prompt vacío"}), 400
+        
+        # Rule-based enhancement (no model needed, saves VRAM)
+        quality_keywords = "masterpiece, best quality, highly detailed, professional photography, 8k uhd, sharp focus, perfect lighting"
+        
+        # Detect if it's a portrait/person
+        person_keywords = ['person', 'man', 'woman', 'portrait', 'face', 'people', 'human']
+        is_portrait = any(kw in prompt.lower() for kw in person_keywords)
+        
+        if is_portrait:
+            enhanced = f"{quality_keywords}, beautiful detailed eyes, detailed face, {prompt}, cinematic lighting, bokeh background"
+        else:
+            enhanced = f"{quality_keywords}, {prompt}, vibrant colors, professional composition"
+        
+        return jsonify({
+            "status": "success", 
+            "prompt": enhanced,
+            "original": prompt
+        })
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/face-swap', methods=['POST'])
+def face_swap():
+    """Intercambia rostros entre dos imágenes usando InsightFace."""
+    import torch
+    if not torch.cuda.is_available():
+        return jsonify({"status": "error", "message": "GPU no disponible en el servidor"}), 503
+    
+    try:
+        data = request.json
+        source_image = data.get('source_image')
+        target_image = data.get('target_image')
+        
+        if not source_image or not target_image:
+            return jsonify({
+                "status": "error", 
+                "message": "Se requieren source_image y target_image en base64"
+            }), 400
+        
+        # Importar servicio
+        from services.face_swap_service import get_face_swap_service
+        
+        # Offload otros modelos para liberar VRAM
+        offload_models(except_model='faceswap')
+        
+        # Obtener servicio y procesar
+        service = get_face_swap_service()
+        result_image = service.process_base64(source_image, target_image)
+        
+        # Registrar en loaded_models para tracking
+        loaded_models['faceswap'] = service
+        
+        return jsonify({
+            "status": "success", 
+            "image": result_image
+        })
+        
+    except Exception as e:
+        print(f"[!] Face Swap Error: {e}")
+        return jsonify({
+            "status": "error", 
+            "message": str(e)
+        }), 500
+
 @app.route('/generate-image', methods=['POST'])
+
+
 def generate_image():
     import torch
     if not torch.cuda.is_available():
@@ -276,20 +352,31 @@ def generate_image():
 
 @app.route('/gpu-status', methods=['GET'])
 def gpu_status():
+    """Enhanced GPU status with detailed VRAM monitoring."""
     try:
         import torch
         if torch.cuda.is_available():
-            mem = torch.cuda.get_device_properties(0).total_memory / 1e9
-            used = torch.cuda.memory_allocated(0) / 1e9
+            total = torch.cuda.get_device_properties(0).total_memory / 1e9
+            allocated = torch.cuda.memory_allocated(0) / 1e9
+            reserved = torch.cuda.memory_reserved(0) / 1e9
+            free = total - reserved
+            
             return jsonify({
                 "status": "online",
                 "device": torch.cuda.get_device_name(0),
-                "vram_total": round(mem, 2),
-                "vram_used": round(used, 2),
-                "utilization": 45
+                "vram_total_gb": round(total, 2),
+                "vram_allocated_gb": round(allocated, 2),
+                "vram_reserved_gb": round(reserved, 2),
+                "vram_free_gb": round(free, 2),
+                "utilization_percent": round((reserved / total) * 100, 1),
+                "models_loaded": list(loaded_models.keys()),
+                "cuda_version": torch.version.cuda
             })
-    except: pass
-    return jsonify({"status": "offline"})
+    except Exception as e:
+        print(f"[!] GPU Status Error: {e}")
+    
+    return jsonify({"status": "offline", "message": "GPU no disponible"})
+
 
 @app.route('/avatars', methods=['GET'])
 def get_avatars():
