@@ -1,10 +1,15 @@
-{
+
+import json
+import os
+
+filepath = 'backend/Enfoads_Colab.ipynb'
+token = "2yHQiBeYhFdbJSiK31054jtsKkw_54yvtD5Cs9mK2yhFgQ2j"
+
+notebook = {
     "cells": [
         {
             "cell_type": "markdown",
-            "metadata": {
-                "id": "header"
-            },
+            "metadata": {"id": "header"},
             "source": [
                 "# 🚀 EnfoadsIA - Backend Production (T4 GPU)\n",
                 "\n",
@@ -15,11 +20,8 @@
         },
         {
             "cell_type": "code",
-            "execution_count": null,
-            "metadata": {
-                "id": "setup",
-                "cellView": "form"
-            },
+            "execution_count": None,
+            "metadata": {"id": "setup", "cellView": "form"},
             "outputs": [],
             "source": [
                 "# @title 🛠️ 1. Entorno y Dependencias\n",
@@ -57,11 +59,8 @@
         },
         {
             "cell_type": "code",
-            "execution_count": null,
-            "metadata": {
-                "id": "run",
-                "cellView": "form"
-            },
+            "execution_count": None,
+            "metadata": {"id": "run", "cellView": "form"},
             "outputs": [],
             "source": [
                 "# @title 🚀 2. Ejecutar Servidor\n",
@@ -71,7 +70,7 @@
                 "# Resetear ruta\n",
                 "os.chdir(\"/content/FoadsIA/backend\")\n",
                 "\n",
-                "AUTH_TOKEN = \"2yHQiBeYhFdbJSiK31054jtsKkw_54yvtD5Cs9mK2yhFgQ2j\" #@param {type:\"string\"}\n",
+                "AUTH_TOKEN = \"" + token + "\" #@param {type:\"string\"}\n",
                 "if AUTH_TOKEN:\n",
                 "    !ngrok config add-authtoken {AUTH_TOKEN}\n",
                 "\n",
@@ -99,14 +98,13 @@
     ],
     "metadata": {
         "accelerator": "GPU",
-        "colab": {
-            "gpuType": "T4"
-        },
-        "kernelspec": {
-            "display_name": "Python 3",
-            "name": "python3"
-        }
+        "colab": {"gpuType": "T4"},
+        "kernelspec": {"display_name": "Python 3", "name": "python3"}
     },
-    "nbformat": 4,
-    "nbformat_minor": 0
+    "nbformat": 4, "nbformat_minor": 0
 }
+
+with open(filepath, 'w', encoding='utf-8') as f:
+    json.dump(notebook, f, indent=4, ensure_ascii=False)
+
+print("Notebook de Colab actualizado con rutas absolutas y verificación de módulos críticos.")

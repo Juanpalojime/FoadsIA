@@ -10,7 +10,6 @@ diffusers
 transformers
 accelerate
 insightface
-onnxruntime
 opencv-python-headless
 huggingface_hub
 faster-whisper
@@ -22,7 +21,6 @@ protobuf
 Pillow
 requests
 tqdm
-funsd
 altair
 pydantic
 python-multipart
@@ -39,5 +37,6 @@ pandas
 scikit-learn
 scikit-image
 numba
+safetensors
 onnxruntime-gpu; platform_system == 'Linux'
 onnxruntime; platform_system == 'Windows'
