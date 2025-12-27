@@ -35,7 +35,8 @@ gradio
 
 # Media Processing (Audio/Video/Restoration)
 edge-tts
-faster-whisper
+openai-whisper
+
 moviepy==1.0.3
 imageio-ffmpeg
 basicsr
