@@ -1,73 +1,145 @@
-# React + TypeScript + Vite
+# 🚀 EnfoadsIA - Plataforma de Generación de Contenido con IA
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+EnfoadsIA es una plataforma completa para generar imágenes y videos usando modelos de IA avanzados, optimizada para ejecutarse en Google Colab con GPU T4.
 
-Currently, two official plugins are available:
+## 🎯 Características
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Generación de Imágenes**: SDXL Lightning (4 pasos, ultra-rápido)
+- **Generación de Videos**: Avatares con voz y subtítulos automáticos
+- **Face Swap**: Intercambio de rostros en imágenes
+- **Multi-Escena**: Creación de videos comerciales con múltiples escenas
+- **Biblioteca de Assets**: Gestión de contenido generado
+- **Optimización VRAM**: Gestión inteligente de memoria para GPU T4
 
-## React Compiler
+## 📁 Estructura del Proyecto
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+FoadsIA/
+├── backend/              # Servidor Flask + SocketIO
+│   ├── app.py           # API principal
+│   ├── requirements.txt # Dependencias Python
+│   ├── test_app.py      # Tests del backend
+│   └── Enfoads_Colab.ipynb  # Notebook para Google Colab
+├── src/                 # Frontend React + TypeScript
+│   ├── pages/          # Páginas de la aplicación
+│   ├── components/     # Componentes reutilizables
+│   ├── services/       # API client y servicios
+│   └── styles/         # CSS y variables de diseño
+└── public/             # Assets estáticos
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🚀 Inicio Rápido
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Opción 1: Desarrollo Local (Frontend)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Instalar dependencias
+npm install
+
+# Ejecutar en modo desarrollo
+npm run dev
+
+# Ejecutar tests
+npx vitest run
 ```
+
+### Opción 2: Backend en Google Colab (Recomendado)
+
+1. **Abre el notebook**: `backend/Enfoads_Colab.ipynb` en Google Colab
+2. **Configura GPU**: Runtime → Change runtime type → GPU (T4)
+3. **Ejecuta las celdas** en orden:
+   - Celda 1: Instala dependencias y clona el repositorio
+   - Celda 2: Configura tu token de Ngrok
+   - Celda 3: Inicia el servidor
+4. **Copia la URL de Ngrok** que aparece en la salida
+5. **Configura el frontend**: Ve a Settings y pega la URL
+
+### Opción 3: Backend Local (Desarrollo)
+
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+```
+
+## 🔧 Configuración
+
+### Variables de Entorno
+
+El frontend usa `localStorage` para guardar la configuración:
+- `FOADS_API_URL`: URL del backend (ej: `https://xxxx.ngrok-free.app`)
+
+### Ngrok Token
+
+Para usar Ngrok en Colab, necesitas un token gratuito:
+1. Regístrate en [ngrok.com](https://ngrok.com)
+2. Copia tu authtoken desde [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)
+3. Pégalo en la Celda 2 del notebook de Colab
+
+## 🧪 Testing
+
+### Frontend
+```bash
+npx vitest run              # Ejecutar todos los tests
+npx vitest run --coverage   # Con cobertura
+```
+
+### Backend
+```bash
+cd backend
+pytest test_app.py -v
+```
+
+## 📦 Dependencias Principales
+
+### Frontend
+- React 19 + TypeScript
+- Vite (build tool)
+- React Router (navegación)
+- Zustand (state management)
+- Socket.IO Client (tiempo real)
+- Lucide React (iconos)
+
+### Backend
+- Flask + Flask-SocketIO
+- PyTorch + Diffusers (SDXL)
+- Faster-Whisper (transcripción)
+- MoviePy (edición de video)
+- Pyngrok (túnel público)
+- InsightFace (face swap)
+
+## 🎨 Características del Frontend
+
+- **Diseño Moderno**: Glassmorphism, gradientes, animaciones
+- **Responsive**: Adaptado a móviles y tablets
+- **Error Boundary**: Manejo robusto de errores
+- **Estado Global**: Gestión de créditos y assets
+- **Testing**: Cobertura de componentes críticos
+
+## 🔒 Seguridad
+
+- CORS configurado para desarrollo
+- Validación de inputs en backend
+- Error handlers globales
+- Sanitización de URLs
+
+## 📝 Licencia
+
+Este proyecto es de código abierto para uso educativo y personal.
+
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Por favor:
+1. Fork el repositorio
+2. Crea una rama para tu feature
+3. Commit tus cambios
+4. Push a la rama
+5. Abre un Pull Request
+
+## 📧 Soporte
+
+Para problemas o preguntas, abre un issue en GitHub.
+
+---
+
+**Desarrollado con ❤️ usando React, Flask y modelos de IA de última generación**
