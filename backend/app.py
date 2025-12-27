@@ -177,13 +177,14 @@ def background_worker():
                 data = job['data']
                 avatar_id = data.get('avatar_id')
                 script = data.get('script')
+                voice_id = data.get('voice_id', 'es-CO-SalomeNeural') # Default to Salome if missing
                 
                 # 1. TTS Generation
-                socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 15, "message": "Generando voz neuronal..."})
+                socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 15, "message": f"Generando voz ({voice_id})..."})
                 audio_path = os.path.join(work_dir, "audio.mp3")
                 
                 if script:
-                    if not run_tts_sync(script, audio_path):
+                    if not run_tts_sync(script, audio_path, voice=voice_id):
                         raise Exception("TTS Generation Failed")
                 
                 # 2. Animation (LivePortrait via Subprocess)

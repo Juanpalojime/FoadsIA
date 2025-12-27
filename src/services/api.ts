@@ -98,7 +98,7 @@ export const api = {
         }
     },
 
-    renderVideo: async (script: string, avatarId: number, generateSubtitles: boolean = false): Promise<any> => {
+    renderVideo: async (script: string, avatarId: string, voiceId: string, generateSubtitles: boolean = false): Promise<any> => {
         const url = getBaseUrl();
         if (!url) throw new Error('API URL not configured');
 
@@ -112,6 +112,7 @@ export const api = {
                 body: JSON.stringify({
                     script,
                     avatar_id: avatarId,
+                    voice_id: voiceId,
                     generate_subtitles: generateSubtitles
                 })
             });

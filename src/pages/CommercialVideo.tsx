@@ -26,6 +26,8 @@ export default function CommercialVideo() {
     const [jobId, setJobId] = useState<string | null>(null);
     const [avatars, setAvatars] = useState<any[]>([]);
     const [selectedAvatar, setSelectedAvatar] = useState<any>(null);
+    const [voices, setVoices] = useState<any[]>([]);
+    const [selectedVoice, setSelectedVoice] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [isUsingDemo, setIsUsingDemo] = useState(false);
 
@@ -48,8 +50,14 @@ export default function CommercialVideo() {
                 // Fetch Voices
                 const voiceRes = await api.getVoices();
                 if (voiceRes.status === 'success' && voiceRes.voices) {
-                    // Filter valid voices if needed, or use all
-                    // Assuming we have a state for voices
+                    setVoices(voiceRes.voices);
+                    // Preferir voces colombianas por defecto si existen
+                    const defaultVoice = voiceRes.voices.find((v: any) => v.id.includes('es-CO')) || voiceRes.voices[0];
+                    setSelectedVoice(defaultVoice);
+                } else {
+                    // Demo voices local fallback if backend voices fail independently
+                    setVoices(demoData.voices);
+                    setSelectedVoice(demoData.voices[0]);
                 }
 
                 if (isUsingDemo) {
@@ -59,7 +67,9 @@ export default function CommercialVideo() {
             } catch (err) {
                 console.warn("Failed to fetch data, using demo", err);
                 setAvatars(demoData.avatars);
+                setVoices(demoData.voices);
                 setSelectedAvatar(demoData.avatars[0]);
+                setSelectedVoice(demoData.voices[0]);
                 setIsUsingDemo(true);
                 showToast('Usando datos de demostración', 'info');
             }
@@ -110,9 +120,14 @@ export default function CommercialVideo() {
             return;
         }
 
+        if (!selectedVoice) {
+            setError('Por favor selecciona una voz.');
+            return;
+        }
+
         const { useCredit } = useCreditsStore.getState();
         if (!useCredit(25)) {
-            alert('Necesitas 25 créditos para renderizar un video comercial premium.');
+            showToast('Créditos insuficientes (necesitas 25)', 'error');
             return;
         }
 
@@ -124,15 +139,18 @@ export default function CommercialVideo() {
         setStatusMessage('Iniciando motores de producción...');
 
         try {
-            const response = await api.renderVideo(script, selectedAvatar.id);
+            // Pass voice ID to the API
+            const response = await api.renderVideo(script, selectedAvatar.id, selectedVoice.id);
             if (response.status === 'success') {
                 setJobId(response.job_id);
+                showToast('Renderizado iniciado exitosamente', 'success');
             } else {
                 throw new Error(response.message || 'Error al iniciar render');
             }
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'Error de comunicación con el servidor.');
+            showToast(err.message || 'Error al iniciar render', 'error');
             setIsRendering(false);
         }
     };
@@ -172,19 +190,21 @@ export default function CommercialVideo() {
                                         className="h-6 text-[9px] font-black gap-1 text-primary hover:bg-primary/5"
                                         onClick={async () => {
                                             const res = await api.magicPrompt(script);
-                                            if (res.status === 'success') setScript(res.prompt || script);
+                                            if (res.status === 'success') {
+                                                setScript(res.prompt || script);
+                                                showToast('Guion mejorado con IA', 'success');
+                                            }
                                         }}
                                     >
                                         <Sparkles size={10} /> IA MAGIC
                                     </Button>
                                 </div>
                                 <Textarea
-                                    className="min-h-[200px] text-xs font-medium focus-visible:ring-primary rounded-2xl bg-muted/20 border-border p-4 leading-relaxed"
+                                    className="min-h-[120px] text-xs font-medium focus-visible:ring-primary rounded-2xl bg-muted/20 border-border p-4 leading-relaxed"
                                     placeholder="Escribe lo que dirá el vocero... Ejemplo: 'Hola, bienvenidos a EnfoadsIA, el futuro del marketing digital.'"
                                     value={script}
                                     onChange={(e) => setScript(e.target.value)}
                                 />
-                                <p className="text-[10px] text-muted-foreground italic px-1">Tip: Sé específico y usa un tono profesional.</p>
                             </div>
 
                             <div className="space-y-3">
@@ -200,12 +220,41 @@ export default function CommercialVideo() {
                                             )}
                                         >
                                             <img src={av.img} alt={av.name} className="w-full h-full object-cover rounded-xl" />
-                                            <div className="absolute inset-x-0 bottom-0 p-1.5 bg-black/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <p className="text-[7px] text-white font-black truncate uppercase text-center">{av.name}</p>
-                                            </div>
+                                            {selectedAvatar?.id === av.id && <div className="absolute top-1 right-1 w-3 h-3 bg-primary rounded-full border-2 border-white" />}
                                         </button>
                                     ))}
                                     {avatars.length === 0 && <div className="col-span-3 py-10 text-center text-xs text-muted-foreground border-2 border-dashed border-border rounded-2xl">No hay avatares disponibles</div>}
+                                </div>
+                            </div>
+
+                            {/* Voices Section */}
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Seleccionar Voz (Neural)</label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {voices.map((voice) => (
+                                        <button
+                                            key={voice.id}
+                                            onClick={() => setSelectedVoice(voice)}
+                                            className={cn(
+                                                "flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left",
+                                                selectedVoice?.id === voice.id
+                                                    ? "border-primary bg-primary/5 shadow-sm"
+                                                    : "border-transparent bg-muted/30 hover:bg-muted/50"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold",
+                                                    voice.gender === 'Female' ? "bg-pink-100 text-pink-600" : "bg-blue-100 text-blue-600")}>
+                                                    {voice.country === 'Colombia' ? '🇨🇴' : voice.country === 'México' ? '🇲🇽' : '🎙️'}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-foreground">{voice.name}</p>
+                                                    <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">{voice.gender} • {voice.language}</p>
+                                                </div>
+                                            </div>
+                                            {selectedVoice?.id === voice.id && <CheckCircle2 size={14} className="text-primary" />}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         </div>
