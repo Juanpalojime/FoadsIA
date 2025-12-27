@@ -358,16 +358,21 @@ def load_sdxl_model():
         
         print("Loading SDXL Lightning to RAM...")
         
-        # Load UNet
-        unet = UNet2DConditionModel.from_config(base, subfolder="unet")
-        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cpu", weights_only=False))
+        # Load UNet (Optimized Setup)
+        # Load config first to avoid warnings and enable faster loading
+        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet")
+        unet = UNet2DConditionModel.from_config(unet_config)
         
-        # Create pipeline
+        # Load lightning weights
+        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cpu", weights_only=True)) # weights_only=True for security/speed
+        
+        # Create pipeline with efficient VAE loading
         pipe_image = DiffusionPipeline.from_pretrained(
             base, 
             unet=unet, 
             torch_dtype=torch.float16, 
-            variant="fp16"
+            variant="fp16",
+            use_safetensors=True
         )
         
         pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(
