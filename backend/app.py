@@ -340,7 +340,7 @@ def load_sdxl_model():
 
         print("Loading SDXL Lightning to RAM...")
         unet = UNet2DConditionModel.from_config(base, subfolder="unet")
-        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cpu"))
+        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cpu", weights_only=False))
         pipe_image = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16")
         pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe_image.scheduler.config, timestep_spacing="trailing")
         loaded_models['sdxl'] = pipe_image
@@ -425,26 +425,45 @@ def face_swap():
         }), 500
 
 @app.route('/generate-image', methods=['POST'])
-
-
 def generate_image():
     import torch
+    import traceback
+    
     if not torch.cuda.is_available():
         return jsonify({"status": "error", "message": "GPU no disponible en el servidor"}), 503
     
     try:
         data = request.json
         prompt = data.get('prompt')
+        
+        if not prompt:
+            return jsonify({"status": "error", "message": "Prompt vacío o no proporcionado"}), 400
+        
+        print(f"[*] Generating image for prompt: {prompt[:50]}...")
+        
         pipe = load_sdxl_model()
+        
+        print(f"[*] Running SDXL inference...")
         image = pipe(prompt, num_inference_steps=4, guidance_scale=0).images[0]
         
+        print(f"[*] Encoding image to base64...")
         import io, base64
         buffered = io.BytesIO()
         image.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        
+        print(f"[✓] Image generated successfully")
         return jsonify({"status": "success", "image": f"data:image/png;base64,{img_str}"})
+        
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        error_trace = traceback.format_exc()
+        print(f"[!] Image Generation Error: {str(e)}")
+        print(f"[!] Traceback:\n{error_trace}")
+        return jsonify({
+            "status": "error", 
+            "message": str(e),
+            "type": type(e).__name__
+        }), 500
 
 @app.route('/gpu-status', methods=['GET'])
 def gpu_status():
