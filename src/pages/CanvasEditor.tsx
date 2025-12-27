@@ -6,6 +6,7 @@ import RightPanel from '../components/canvas/RightPanel';
 import BottomBar from '../components/canvas/BottomBar';
 import { Layer, ToolType, Selection } from '../types';
 import { generateGeminiImage } from '../services/gemini';
+import { Card } from '@/components/ui/card';
 
 const INITIAL_LAYERS: Layer[] = [
     {
@@ -89,7 +90,7 @@ export default function CanvasEditor() {
     };
 
     return (
-        <div className="h-[calc(100vh-6rem)] bg-[var(--bg-main)] rounded-xl border border-[var(--border-light)] flex overflow-hidden relative shadow-2xl">
+        <Card className="h-[calc(100vh-6rem)] bg-background rounded-xl border border-border flex overflow-hidden relative shadow-2xl p-0">
             <main className="flex-1 flex flex-col relative h-full">
                 {/* Workspace Area */}
                 <div className="flex flex-1 relative overflow-hidden">
@@ -112,6 +113,6 @@ export default function CanvasEditor() {
                 onToggleLock={toggleLayerLock}
                 onAddLayer={addEmptyLayer}
             />
-        </div>
+        </Card>
     );
 }

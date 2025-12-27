@@ -2,7 +2,8 @@
 import React from 'react';
 import { MousePointer2, Move, Type, Brush, Sparkles } from 'lucide-react';
 import { ToolType } from '../../types';
-import clsx from 'clsx';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface ToolbarProps {
     activeTool: ToolType;
@@ -19,21 +20,21 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTool, setActiveTool }) => {
     ];
 
     return (
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-[var(--bg-card)] border border-[var(--border-light)] p-2 rounded-2xl shadow-2xl z-20">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-card border border-border p-2 rounded-2xl shadow-xl z-20">
             {tools.map((tool) => (
-                <button
+                <Button
                     key={tool.id}
                     onClick={() => setActiveTool(tool.id)}
+                    variant={activeTool === tool.id ? "default" : "ghost"}
+                    size="icon"
                     title={tool.label}
-                    className={clsx(
-                        "p-3 rounded-xl transition-all group",
-                        activeTool === tool.id
-                            ? "bg-[var(--primary)] text-white shadow-[var(--shadow-glow)]"
-                            : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+                    className={cn(
+                        "rounded-xl transition-all",
+                        activeTool === tool.id ? "shadow-md" : ""
                     )}
                 >
-                    <tool.icon size={20} className={clsx(activeTool === tool.id ? "scale-110" : "group-hover:scale-110")} />
-                </button>
+                    <tool.icon size={20} className={cn(activeTool === tool.id && "scale-110")} />
+                </Button>
             ))}
         </div>
     );

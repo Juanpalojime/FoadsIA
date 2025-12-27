@@ -21,3 +21,4 @@ data/
 *.jpeg
 models/
 checkpoints/
+backend/LivePortrait/

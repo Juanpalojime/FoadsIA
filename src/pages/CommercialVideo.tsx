@@ -1,251 +1,266 @@
-import { useState } from 'react';
-import { Play, Plus, Trash2, FileText, MonitorPlay, Users, Image as ImageIcon, RefreshCw, CheckCircle2, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Play, Plus, Trash2, FileText, MonitorPlay, Users, Image as ImageIcon, RefreshCw, CheckCircle2, ExternalLink, Sparkles, Send, AlertCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import clsx from 'clsx';
 import { api } from '../services/api';
 import { useCreditsStore } from '../store/useCreditsStore';
-import '../styles/variables.css';
-
-// Mocks
-const avatars = [
-    { id: 1, name: 'Sofi', img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150' },
-    { id: 2, name: 'Marc', img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150&h=150' },
-    { id: 3, name: 'Ana', img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150&h=150' },
-    { id: 4, name: 'David', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150' },
-    { id: 5, name: 'Julia', img: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150&h=150' },
-    { id: 6, name: 'Alex', img: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150&h=150' },
-];
-
-const initialScenes = [
-    { id: 1, text: 'Hola, bienvenidos a EnfoadsIA. Hoy les mostraré el futuro.', duration: 5, avatar: 1 },
-    { id: 2, text: 'Con nuestra tecnología, crear contenido es más fácil que nunca.', duration: 4, avatar: 1 },
-    { id: 3, text: 'Prueba gratis y descubre el poder de la IA generativa.', duration: 6, avatar: 2 },
-];
+import { io } from 'socket.io-client';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { db } from '../services/db';
 
 export default function CommercialVideo() {
     const [activeTab, setActiveTab] = useState<'avatars' | 'backgrounds'>('avatars');
     const [script, setScript] = useState('');
     const [isRendering, setIsRendering] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [statusMessage, setStatusMessage] = useState('');
     const [renderSuccess, setRenderSuccess] = useState(false);
     const [videoUrl, setVideoUrl] = useState<string | null>(null);
-    const [scenes, setScenes] = useState(initialScenes);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [avatars, setAvatars] = useState<any[]>([]);
+    const [selectedAvatar, setSelectedAvatar] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    // Fetch Avatars from Backend
+    useEffect(() => {
+        const fetchAvatars = async () => {
+            try {
+                const res = await api.getAvatars();
+                if (res.status === 'success') {
+                    setAvatars(res.avatars);
+                    if (res.avatars.length > 0) setSelectedAvatar(res.avatars[0]);
+                }
+            } catch (err) {
+                console.error("Failed to fetch avatars", err);
+            }
+        };
+        fetchAvatars();
+    }, []);
+
+    // WebSocket Connection for Real-time Updates
+    useEffect(() => {
+        if (!jobId) return;
+
+        const socketUrl = localStorage.getItem('FOADS_API_URL') || '';
+        if (!socketUrl) return;
+
+        const socket = io(socketUrl);
+
+        socket.on('job_update', (data) => {
+            if (data.job_id === jobId) {
+                if (data.status === 'processing') {
+                    setProgress(data.progress || 0);
+                    if (data.message) setStatusMessage(data.message);
+                } else if (data.status === 'completed') {
+                    setProgress(100);
+                    setVideoUrl(data.url);
+                    setIsRendering(false);
+                    setRenderSuccess(true);
+
+                    // Save to Local DB
+                    db.addAsset({
+                        type: 'video',
+                        content: data.url,
+                        prompt: `Commercial Video: ${script.substring(0, 30)}...`,
+                        createdAt: Date.now()
+                    });
+                } else if (data.status === 'failed') {
+                    setError(data.error || 'Error en el renderizado');
+                    setIsRendering(false);
+                }
+            }
+        });
+
+        return () => { socket.disconnect(); };
+    }, [jobId]);
 
     const handleRender = async () => {
-        if (!script && scenes.length === 0) return;
+        if (!script || !selectedAvatar) {
+            setError('Por favor escribe un guion y selecciona un vocero.');
+            return;
+        }
 
         const { useCredit } = useCreditsStore.getState();
-        if (!useCredit(10)) {
-            alert('Necesitas 10 créditos para renderizar un video comercial.');
+        if (!useCredit(25)) {
+            alert('Necesitas 25 créditos para renderizar un video comercial premium.');
             return;
         }
 
         setIsRendering(true);
         setRenderSuccess(false);
         setVideoUrl(null);
+        setError(null);
+        setProgress(5);
+        setStatusMessage('Iniciando motores de producción...');
 
         try {
-            const finalScript = script || scenes.map(s => s.text).join(' ');
-            const response = await api.renderVideo(finalScript, 1); // Mock avatar ID 1
+            const response = await api.renderVideo(script, selectedAvatar.id);
             if (response.status === 'success') {
-                setRenderSuccess(true);
-                setVideoUrl(response.video_url);
+                setJobId(response.job_id);
+            } else {
+                throw new Error(response.message || 'Error al iniciar render');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert('Error al iniciar el renderizado.');
-        } finally {
+            setError(err.message || 'Error de comunicación con el servidor.');
             setIsRendering(false);
         }
     };
 
     return (
-        <div className="h-[calc(100vh-6rem)] flex flex-col gap-4">
+        <div className="max-w-7xl mx-auto h-[calc(100vh-8rem)] flex flex-col gap-6">
+            <header className="flex justify-between items-end">
+                <div>
+                    <h1 className="text-3xl font-black flex items-center gap-3 tracking-tight">
+                        <span className="p-2 rounded-xl bg-primary/10 text-primary shadow-inner">
+                            <MonitorPlay size={32} />
+                        </span>
+                        Commercial Studio
+                        <Badge variant="default" className="ml-2 text-[10px] tracking-widest uppercase bg-gradient-to-r from-primary to-purple-600">PRO</Badge>
+                    </h1>
+                    <p className="text-muted-foreground mt-1 text-sm font-medium">Crea videos comerciales de alta conversión con rostros humanos.</p>
+                </div>
+            </header>
 
-            <div className="flex-1 min-h-0 flex gap-4">
+            <div className="flex-1 min-h-0 flex gap-6">
                 {/* LEFT COLUMN: Configuration */}
-                <div className="w-80 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-[var(--border-light)]">
-                        <h2 className="font-bold flex items-center gap-2 text-sm">
-                            <FileText size={18} className="text-[var(--primary)]" />
-                            Guion y Configuración
+                <Card className="w-96 rounded-[2rem] flex flex-col overflow-hidden shadow-2xl border-border bg-card/50 backdrop-blur-sm">
+                    <div className="p-6 border-b border-border bg-muted/10">
+                        <h2 className="font-black flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-foreground">
+                            <FileText size={18} className="text-primary" />
+                            Producción de Guion
                         </h2>
                     </div>
-                    <div className="p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar flex-1">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Texto del Guion</label>
-                            <textarea
-                                className="w-full h-40 bg-[var(--bg-input)] border border-[var(--border-light)] rounded-lg p-3 text-sm focus:border-[var(--primary)] outline-none resize-none leading-relaxed transition-colors"
-                                placeholder="Escribe lo que dirá el avatar..."
-                                value={script}
-                                onChange={(e) => setScript(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Voz e Idioma</label>
-                            <select className="w-full bg-[var(--bg-input)] border border-[var(--border-light)] rounded-lg p-2.5 text-sm outline-none border-[var(--border-light)] hover:border-[var(--primary)]/50 transition-colors">
-                                <option>Español (México) - Neural</option>
-                                <option>English (US) - Professional</option>
-                                <option>Français (France)</option>
-                            </select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Estilo de Voz</label>
-                            <div className="flex gap-2">
-                                <button className="flex-1 py-1.5 text-[10px] font-bold border border-[var(--border-light)] rounded bg-[var(--bg-hover)] text-[var(--text-primary)]">CALMADO</button>
-                                <button className="flex-1 py-1.5 text-[10px] font-bold border border-[var(--primary)] rounded bg-[var(--primary)]/10 text-[var(--primary)]">ENERGÉTICO</button>
-                                <button className="flex-1 py-1.5 text-[10px] font-bold border border-[var(--border-light)] rounded bg-[var(--bg-hover)] text-[var(--text-primary)]">SERIO</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* CENTER COLUMN: Gallery/Preview */}
-                <div className="flex-1 flex flex-col gap-4">
-                    {/* Visual Selector */}
-                    <div className="flex-1 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl flex flex-col overflow-hidden">
-                        <div className="p-2 border-b border-[var(--border-light)] flex gap-2">
-                            <button
-                                onClick={() => setActiveTab('avatars')}
-                                className={clsx("px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2", activeTab === 'avatars' ? "bg-[var(--primary)] text-white shadow-sm" : "hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]")}
-                            >
-                                <Users size={16} /> Avatares
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('backgrounds')}
-                                className={clsx("px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2", activeTab === 'backgrounds' ? "bg-[var(--primary)] text-white shadow-sm" : "hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]")}
-                            >
-                                <ImageIcon size={16} /> Fondos
-                            </button>
-                        </div>
-
-                        <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                {avatars.map((av) => (
-                                    <motion.div
-                                        whileHover={{ scale: 1.02 }}
-                                        key={av.id}
-                                        className="aspect-square rounded-xl overflow-hidden relative group cursor-pointer border border-transparent hover:border-[var(--primary)] transition-all shadow-lg"
+                    <ScrollArea className="flex-1 p-6">
+                        <div className="flex flex-col gap-6">
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Texto del Guion</label>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 text-[9px] font-black gap-1 text-primary hover:bg-primary/5"
+                                        onClick={async () => {
+                                            const res = await api.magicPrompt(script);
+                                            if (res.status === 'success') setScript(res.prompt || script);
+                                        }}
                                     >
-                                        <img src={av.img} alt={av.name} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
-                                            <span className="text-[10px] font-bold text-white uppercase tracking-widest">{av.name}</span>
-                                        </div>
-                                    </motion.div>
-                                ))}
-                                {/* Mock More Items */}
-                                {Array.from({ length: 15 }).map((_, i) => (
-                                    <div key={`mock-${i}`} className="aspect-square rounded-xl bg-[var(--bg-input)] border border-[var(--border-light)] opacity-20 border-dashed" />
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* BOTTOM: Timeline / Scene Editor */}
-            <div className="h-64 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl flex flex-col overflow-hidden shrink-0 shadow-2xl relative">
-                {/* Rendering Overlay */}
-                <AnimatePresence>
-                    {isRendering && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 z-30 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center gap-4"
-                        >
-                            <RefreshCw size={48} className="text-[var(--primary)] animate-spin" />
-                            <div className="text-center">
-                                <h3 className="font-bold text-lg mb-1">Renderizando Video Comercial</h3>
-                                <p className="text-sm text-[var(--text-secondary)]">Procesando escenas y sintetizando voz neuronal...</p>
-                            </div>
-                            <div className="w-64 h-2 bg-white/10 rounded-full overflow-hidden">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: "100%" }}
-                                    transition={{ duration: 10 }}
-                                    className="h-full bg-[var(--primary)] shadow-[var(--shadow-glow)]"
+                                        <Sparkles size={10} /> IA MAGIC
+                                    </Button>
+                                </div>
+                                <Textarea
+                                    className="min-h-[200px] text-xs font-medium focus-visible:ring-primary rounded-2xl bg-muted/20 border-border p-4 leading-relaxed"
+                                    placeholder="Escribe lo que dirá el vocero... Ejemplo: 'Hola, bienvenidos a EnfoadsIA, el futuro del marketing digital.'"
+                                    value={script}
+                                    onChange={(e) => setScript(e.target.value)}
                                 />
+                                <p className="text-[10px] text-muted-foreground italic px-1">Tip: Sé específico y usa un tono profesional.</p>
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
 
-                <div className="h-10 border-b border-[var(--border-light)] flex items-center justify-between px-4 bg-[var(--bg-main)]/50">
-                    <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-widest">Línea de Tiempo</span>
-                        <div className="h-4 w-[1px] bg-[var(--border-light)]"></div>
-                        <button className="p-1.5 hover:bg-[var(--bg-hover)] rounded text-[var(--text-primary)] transition-colors"><Play size={14} fill="currentColor" /></button>
-                        <span className="text-xs font-mono text-[var(--text-secondary)]">00:15 / 00:30</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {renderSuccess ? (
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2 text-[var(--success)] text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 bg-[var(--success)]/10 border border-[var(--success)]/30 rounded-lg">
-                                    <CheckCircle2 size={14} />
-                                    Render Exitoso
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Seleccionar Vocero (Avatar)</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {avatars.map((av) => (
+                                        <button
+                                            key={av.id}
+                                            onClick={() => setSelectedAvatar(av)}
+                                            className={cn(
+                                                "relative group aspect-square rounded-2xl overflow-hidden border-2 transition-all p-0.5",
+                                                selectedAvatar?.id === av.id ? "border-primary ring-4 ring-primary/10" : "border-transparent opacity-60 hover:opacity-100"
+                                            )}
+                                        >
+                                            <img src={av.img} alt={av.name} className="w-full h-full object-cover rounded-xl" />
+                                            <div className="absolute inset-x-0 bottom-0 p-1.5 bg-black/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <p className="text-[7px] text-white font-black truncate uppercase text-center">{av.name}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {avatars.length === 0 && <div className="col-span-3 py-10 text-center text-xs text-muted-foreground border-2 border-dashed border-border rounded-2xl">No hay avatares disponibles</div>}
                                 </div>
-                                {videoUrl && (
-                                    <a
-                                        href={videoUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg text-[10px] font-bold uppercase tracking-widest shadow-[var(--shadow-glow)] transition-all"
-                                    >
-                                        <ExternalLink size={14} />
-                                        Ver Video
-                                    </a>
-                                )}
                             </div>
-                        ) : (
-                            <button
-                                onClick={handleRender}
-                                disabled={isRendering}
-                                className="flex items-center gap-2 px-4 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg text-[10px] font-extrabold uppercase tracking-widest shadow-[var(--shadow-glow)] transition-all disabled:opacity-50 group"
-                            >
-                                <MonitorPlay size={14} className="group-hover:scale-110 transition-transform" />
-                                {isRendering ? 'Procesando...' : 'Renderizar Video (10 Créditos)'}
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex-1 p-4 overflow-x-auto custom-scrollbar flex gap-4 items-center">
-                    {scenes.map((scene, idx) => (
-                        <motion.div
-                            key={scene.id}
-                            layoutId={`scene-${scene.id}`}
-                            className="w-56 h-full bg-[var(--bg-main)] border border-[var(--border-light)] rounded-xl flex flex-col shadow-xl hover:border-[var(--primary)] cursor-pointer group relative shrink-0 transition-colors"
+                        </div>
+                    </ScrollArea>
+                    <div className="p-6 bg-muted/5 border-t border-border">
+                        <Button
+                            onClick={handleRender}
+                            disabled={isRendering || !script}
+                            className="w-full py-7 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 transition-all flex items-center justify-center gap-3"
                         >
-                            <div className="h-1.5 bg-[var(--primary)]/10 w-full relative overflow-hidden rounded-t-xl">
-                                <div className="absolute top-0 left-0 h-full bg-[var(--primary)]" style={{ width: '100%' }}></div>
-                            </div>
-                            <div className="p-4 flex-1 flex flex-col">
-                                <div className="flex justify-between items-start mb-3">
-                                    <span className="text-[10px] font-black text-[var(--primary)] uppercase tracking-tighter">Escena {idx + 1}</span>
-                                    <span className="text-[9px] font-bold bg-[var(--bg-hover)] px-2 py-0.5 rounded-full text-[var(--text-secondary)] border border-[var(--border-light)]">{scene.duration}s</span>
+                            {isRendering ? <RefreshCw className="animate-spin" size={20} /> : <Send size={20} />}
+                            {isRendering ? 'Procesando Video...' : 'Iniciar Renderizado (25 CR)'}
+                        </Button>
+                    </div>
+                </Card>
+
+                {/* CENTER COLUMN: Preview / Monitoring */}
+                <Card className="flex-1 rounded-[2.5rem] flex flex-col overflow-hidden shadow-2xl border-border bg-black/40 relative group">
+                    <AnimatePresence mode="wait">
+                        {videoUrl ? (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full flex items-center justify-center bg-black">
+                                <video src={videoUrl} controls className="w-full h-full object-contain" autoPlay />
+                                <div className="absolute top-6 right-6">
+                                    <Badge className="bg-green-500 text-white flex items-center gap-2 px-3 py-1.5">
+                                        <CheckCircle2 size={14} /> Renderizado Completo
+                                    </Badge>
                                 </div>
-                                <p className="text-xs text-[var(--text-secondary)] line-clamp-4 leading-relaxed italic">"{scene.text}"</p>
+                            </motion.div>
+                        ) : isRendering ? (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full gap-8 p-12 text-center">
+                                <div className="relative w-56 h-56">
+                                    <svg className="w-full h-full transform -rotate-90 drop-shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]">
+                                        <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-primary/5" />
+                                        <motion.circle
+                                            cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="10" fill="transparent"
+                                            strokeDasharray={628}
+                                            animate={{ strokeDashoffset: 628 - (628 * progress) / 100 }}
+                                            strokeLinecap="round"
+                                            className="text-primary"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-5xl font-black text-primary tracking-tighter">{progress}%</span>
+                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-2">GPU SYNC</span>
+                                    </div>
+                                </div>
+                                <div className="space-y-4 max-w-md">
+                                    <h3 className="text-2xl font-black text-foreground tracking-tight">{statusMessage || 'Preparando Render'}</h3>
+                                    <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                                        Nuestra red neuronal está sintetizando la voz y animando el vocero. Esto puede tomar de 1 a 3 minutos.
+                                    </p>
+                                    <div className="flex justify-center gap-2">
+                                        <Badge variant="outline" className="animate-pulse">LivePortrait Active</Badge>
+                                        <Badge variant="outline" className="animate-pulse text-primary border-primary">T4 GPU Engaged</Badge>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ) : error ? (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full p-12 text-center text-destructive">
+                                <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
+                                    <AlertCircle size={40} />
+                                </div>
+                                <h3 className="text-xl font-black mb-2 uppercase tracking-widest">Error de Producción</h3>
+                                <p className="text-sm font-medium opacity-80 max-w-sm">{error}</p>
+                                <Button variant="outline" className="mt-8 rounded-xl" onClick={() => setError(null)}>Reintentar</Button>
+                            </motion.div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full gap-6 text-muted-foreground/20 select-none">
+                                <div className="p-12 rounded-[3.5rem] bg-muted/5 border-4 border-dashed border-muted-foreground/10 flex items-center justify-center">
+                                    <Play size={80} fill="currentColor" strokeWidth={0} />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-sm font-black uppercase tracking-[0.4em]">Vista Previa de Producción</p>
+                                    <p className="text-xs font-medium opacity-50 mt-2">Configura tu guion y vocero para comenzar.</p>
+                                </div>
                             </div>
-
-                            {/* Hover Actions */}
-                            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setScenes(scenes.filter(s => s.id !== scene.id)); }}
-                                    className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-all"
-                                >
-                                    <Trash2 size={12} />
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
-
-                    <button className="h-full w-14 border-2 border-dashed border-[var(--border-light)] rounded-xl flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all shrink-0 hover:scale-105 active:scale-95">
-                        <Plus size={24} />
-                    </button>
-                </div>
+                        )}
+                    </AnimatePresence>
+                </Card>
             </div>
         </div>
     );
 }
+

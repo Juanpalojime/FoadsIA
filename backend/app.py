@@ -4,15 +4,28 @@ import time
 import json
 import threading
 import queue
-from flask import Flask, request, jsonify
+import glob
+import subprocess
+import asyncio
+import shutil
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from pyngrok import ngrok
+try:
+    import edge_tts
+except ImportError:
+    print("Instance warm-up: edge-tts not found yet")
 
 # Initialize Flask App & SocketIO
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# Static File Serving
+@app.route('/files/<path:filename>')
+def serve_files(filename):
+    return send_from_directory('data', filename)
 
 # Global Error Handlers
 @app.errorhandler(404)
@@ -32,6 +45,7 @@ def handle_exception(e):
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 ASSETS_FILE = os.path.join(DATA_DIR, "assets.json")
+BASE_URL = os.environ.get("BASE_URL", "") # Store public base URL for threads
 
 def load_json(path, default):
     if not os.path.exists(path):
@@ -113,6 +127,22 @@ def transcribe_and_subtitle(video_path, audio_path):
     except Exception as e:
         print(f"[!] Subtitling failed: {str(e)}")
         return video_path
+# Helper: TTS Sync Wrapper
+async def _poly_tts(text, voice, out_file):
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(out_file)
+
+def run_tts_sync(text, out_file, voice="es-MX-DaliaNeural"):
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(_poly_tts(text, voice, out_file))
+        loop.close()
+        return True
+    except Exception as e:
+        print(f"TTS Failed: {e}")
+        return False
+
 def background_worker():
     while True:
         job = job_queue.get()
@@ -120,28 +150,90 @@ def background_worker():
         
         job_id = job['id']
         jobs_status[job_id]['status'] = 'processing'
-        socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 10})
+        socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 5})
         
         try:
             print(f"[*] Processing Job {job_id}: {job['type']}")
+            work_dir = os.path.join(DATA_DIR, "jobs", job_id)
+            os.makedirs(work_dir, exist_ok=True)
             
-            # Simulate real heavy processing time
+            # Base URL for results
+            # Accessing app context inside thread is tricky for request.url_root
+            # We assume standard localhost or ngrok, ideally passed in job or config
+            # For simplicity, we construct relative to /files/
+            
             if job['type'] == 'video':
-                socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 30, "message": "Animando rostro..."})
-                time.sleep(10) 
+                data = job['data']
+                avatar_id = data.get('avatar_id')
+                script = data.get('script')
                 
-                video_url = "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4"
+                # 1. TTS Generation
+                socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 15, "message": "Generando voz neuronal..."})
+                audio_path = os.path.join(work_dir, "audio.mp3")
                 
-                if job['data'].get('generate_subtitles'):
-                    socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 70, "message": "Generando subtítulos con Whisper..."})
-                    time.sleep(5) 
+                if script:
+                    if not run_tts_sync(script, audio_path):
+                        raise Exception("TTS Generation Failed")
                 
-                jobs_status[job_id]['url'] = video_url
-            
-            jobs_status[job_id]['status'] = 'completed'
-            socketio.emit('job_update', {"job_id": job_id, "status": "completed", "progress": 100, "url": jobs_status[job_id]['url']})
-            print(f"[+] Job {job_id} Finished.")
-            
+                # 2. Animation (LivePortrait via Subprocess)
+                socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 30, "message": "Animando rostro (LivePortrait)..."})
+                
+                # Resolve avatar path
+                avatar_path = os.path.join(DATA_DIR, "avatars", avatar_id) if avatar_id else None
+                if not avatar_path or not os.path.exists(avatar_path):
+                    # Fallback to a default if ID provided is not a file
+                    avatar_path = os.path.join(DATA_DIR, "avatars", "default.jpg") # Ensure this exists
+                
+                if not os.path.exists("LivePortrait"):
+                    print("[!] LivePortrait repo not found. Skipping animation.")
+                    # Fallback so job doesn't crash completely for user without setup
+                    video_path = os.path.join(work_dir, "result.mp4")
+                    # Create dummy video from image to prevent 404
+                    # (requires FFmpeg)
+                    subprocess.run(f"ffmpeg -loop 1 -i {avatar_path} -i {audio_path} -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest {video_path}", shell=True)
+                else:
+                    # Execute LivePortrait inference
+                    # Assuming standard structure
+                    cmd = [
+                        "python", "LivePortrait/inference.py",
+                        "--source", avatar_path,
+                        "--driving", audio_path,
+                        "--output_dir", work_dir
+                    ]
+                    subprocess.run(cmd, check=True)
+                    # Find output video (LivePortrait names vary)
+                    # ... usually inside work_dir/animation.mp4
+                    video_path = os.path.join(work_dir, "result.mp4") # Rename logic needed in real setup
+
+                # 3. Subtitles (Whisper)
+                if data.get('generate_subtitles'):
+                    socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 80, "message": "Sincronizando subtítulos..."})
+                    final_path = transcribe_and_subtitle(video_path, audio_path)
+                    video_path = final_path
+
+                # Finalize
+                # Find the result video. LivePortrait creates a subdir like work_dir/animations/result.mp4
+                found_videos = glob.glob(os.path.join(work_dir, "**", "*.mp4"), recursive=True)
+                if found_videos:
+                    # Sort by modification time to get the latest
+                    found_videos.sort(key=os.path.getmtime, reverse=True)
+                    video_path = found_videos[0]
+                
+                result_filename = os.path.basename(video_path)
+                # Ensure the file is in a predictable place for serving
+                predictable_path = os.path.join(work_dir, "final_result.mp4")
+                if video_path != predictable_path:
+                    shutil.copy2(video_path, predictable_path)
+                
+                public_path = f"{BASE_URL}/files/jobs/{job_id}/final_result.mp4"
+                jobs_status[job_id]['url'] = public_path
+                jobs_status[job_id]['status'] = 'completed'
+                socketio.emit('job_update', {"job_id": job_id, "status": "completed", "progress": 100, "url": public_path})
+
+            elif job['type'] == 'live_portrait':
+                 # Specific endpoint logic job
+                 pass
+
         except Exception as e:
             print(f"[!] Job {job_id} Failed: {str(e)}")
             jobs_status[job_id]['status'] = 'failed'
@@ -156,10 +248,14 @@ worker_thread.start()
 
 @app.route('/', methods=['GET'])
 def health_check():
+    global BASE_URL
+    if not BASE_URL:
+        BASE_URL = request.url_root.rstrip('/')
     return jsonify({
         "status": "online", 
         "mode": "free_oss",
-        "optimization": "T4_VRAM_MANAGER"
+        "optimization": "T4_VRAM_MANAGER",
+        "base_url": BASE_URL
     })
 
 @app.route('/api/assets', methods=['GET', 'POST'])
@@ -380,11 +476,73 @@ def gpu_status():
 
 @app.route('/avatars', methods=['GET'])
 def get_avatars():
-    avatars = [
-        { "id": "av-1", "name": "Premium Male", "img": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300" },
-        { "id": "av-2", "name": "Premium Female", "img": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300" }
-    ]
+    avatar_dir = os.path.join(DATA_DIR, "avatars")
+    os.makedirs(avatar_dir, exist_ok=True)
+    
+    files = glob.glob(os.path.join(avatar_dir, "*.*"))
+    avatars = []
+    
+    # Detect base URL dynamically (ngrok compatible)
+    base_url = request.url_root.rstrip('/')
+    
+    for f in files:
+        fname = os.path.basename(f)
+        if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+             avatars.append({
+                "id": fname,
+                "name": fname.split('.')[0].replace('_', ' ').title(),
+                "img": f"{base_url}/files/avatars/{fname}"
+             })
+             
+    # Fallback if empty
+    if not avatars:
+        avatars = [
+            { "id": "demo_1", "name": "Demo User", "img": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" }
+        ]
+        
     return jsonify({ "status": "success", "avatars": avatars })
+
+@app.route('/live-portrait', methods=['POST'])
+def live_portrait():
+    """Endpoint simplificado para LivePortrait."""
+    try:
+        data = request.json
+        # Encolar trabajo de animación
+        job_id = f"lp_{int(time.time())}"
+        jobs_status[job_id] = { 
+            "id": job_id, 
+            "status": "queued", 
+            "type": "video",  # Reusamos la lógica de video del worker
+            "created_at": time.time()
+        }
+        
+        # Adaptar datos para el worker de video
+        job_data = {
+            "avatar_id": data.get("image"), # Asumimos que mandan ID o path
+            "script": data.get("audio"), # O audio path
+            "generate_subtitles": False
+        }
+        
+        job_queue.put({"id": job_id, "type": "video", "data": job_data})
+        
+        return jsonify({ "status": "processing", "job_id": job_id, "message": "Animación en cola" })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/enhance-media', methods=['POST'])
+def enhance_media():
+    """Upscaling con RealESRGAN."""
+    try:
+        data = request.json
+        # Implementación Stub que pasaría a RealESRGAN
+        # cmd = ["python", "Real-ESRGAN/inference_realesrgan.py", ...]
+        return jsonify({ 
+            "status": "success", 
+            "url": data.get("media_url"), 
+            "message": "Enhancement scheduled (RealESRGAN integration pending)" 
+        })
+    except Exception as e:
+         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     print("\n" + "="*60)

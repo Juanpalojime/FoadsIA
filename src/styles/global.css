@@ -1,142 +1,79 @@
-@import './variables.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
+@layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 263 70% 50%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263 70% 50%;
+    --radius: 0.5rem;
+  }
 }
 
-body {
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
     font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: var(--bg-main);
-    color: var(--text-primary);
-    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
-button {
-    cursor: pointer;
-    font-family: inherit;
-    border: none;
-    background: none;
-    transition: var(--transition-normal);
-}
-
-button:active {
-    transform: scale(0.95);
-}
-
-a {
-    text-decoration: none;
-    color: inherit;
-    transition: var(--transition-normal);
-}
-
-/* Scrollbar Styling - Premium Slim */
-::-webkit-scrollbar {
+@layer utilities {
+  /* Custom scrollbar */
+  .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;
-}
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary;
+  }
 
-::-webkit-scrollbar-track {
-    background: transparent;
-}
+  /* Glassmorphism effect */
+  .glass {
+    @apply bg-card/40 backdrop-blur-xl border border-border/50;
+  }
 
-::-webkit-scrollbar-thumb {
-    background: var(--bg-hover);
-    border-radius: var(--radius-full);
-}
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-    background: var(--primary);
-}
+  /* Glow effect */
+  .glow {
+    @apply shadow-[0_0_20px_rgba(139,92,246,0.3)];
+  }
 
-/* Base Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes glowPulse {
-    0% {
-        box-shadow: 0 0 5px rgba(139, 92, 246, 0.2);
-    }
-
-    50% {
-        box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
-    }
-
-    100% {
-        box-shadow: 0 0 5px rgba(139, 92, 246, 0.2);
-    }
-}
-
-.animate-fade-in {
-    animation: fadeIn var(--transition-normal) forwards;
-}
-
-/* Utilities */
-.container {
-    width: 100%;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 var(--space-md);
-}
-
-@media (max-width: 768px) {
-    .container {
-        padding: 0 var(--space-sm);
-    }
-}
-
-.flex-center {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.text-gradient {
-    background: var(--grad-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.premium-button {
-    background: var(--grad-primary);
-    color: white;
-    padding: var(--space-sm) var(--space-lg);
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    box-shadow: var(--shadow-sm);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    justify-content: center;
-}
-
-.premium-button:hover {
-    box-shadow: var(--shadow-glow);
-    filter: brightness(1.1);
-}
-
-/* Responsive Hide Utilities */
-@media (max-width: 1024px) {
-    .hide-tablet {
-        display: none !important;
-    }
-}
-
-@media (max-width: 640px) {
-    .hide-mobile {
-        display: none !important;
-    }
+  .glow-hover:hover {
+    @apply shadow-[0_0_30px_rgba(139,92,246,0.5)];
+  }
 }

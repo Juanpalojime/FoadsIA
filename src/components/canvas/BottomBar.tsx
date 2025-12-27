@@ -1,6 +1,9 @@
 
 import React from 'react';
 import { ZoomIn, ZoomOut, Maximize, MousePointer, Hand } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 
 interface BottomBarProps {
     zoom: number;
@@ -9,51 +12,52 @@ interface BottomBarProps {
 
 const BottomBar: React.FC<BottomBarProps> = ({ zoom, setZoom }) => {
     return (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[var(--bg-card)]/80 backdrop-blur-md border border-[var(--border-light)] px-4 py-2 rounded-full shadow-2xl flex items-center gap-6 z-20">
-            <div className="flex items-center gap-2 border-r border-[var(--border-light)] pr-4">
-                <button className="p-1.5 text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)] rounded-lg transition-colors">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-card/80 backdrop-blur-md border border-border px-4 py-2 rounded-full shadow-2xl flex items-center gap-6 z-20">
+            <div className="flex items-center gap-2 border-r border-border pr-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted">
                     <MousePointer size={14} />
-                </button>
-                <button className="p-1.5 text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)] rounded-lg transition-colors">
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted">
                     <Hand size={14} />
-                </button>
+                </Button>
             </div>
 
             <div className="flex items-center gap-4">
-                <button
+                <Button
+                    variant="ghost" size="icon"
                     onClick={() => setZoom(Math.max(10, zoom - 10))}
-                    className="p-1 text-[var(--text-secondary)] hover:text-white transition-colors"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
                 >
-                    <ZoomOut size={18} />
-                </button>
+                    <ZoomOut size={16} />
+                </Button>
 
-                <div className="flex items-center gap-2 min-w-[60px] justify-center">
-                    <input
-                        type="range"
-                        min="10"
-                        max="200"
-                        value={zoom}
-                        onChange={(e) => setZoom(parseInt(e.target.value))}
-                        className="w-20 h-1 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
+                <div className="flex items-center gap-3 w-[120px]">
+                    <Slider
+                        value={[zoom]}
+                        min={10} max={200} step={1}
+                        onValueChange={(val) => setZoom(val[0])}
+                        className="flex-1"
                     />
-                    <span className="text-xs font-mono font-bold text-white">{zoom}%</span>
+                    <span className="text-xs font-mono font-bold text-foreground w-8 text-right">{zoom}%</span>
                 </div>
 
-                <button
+                <Button
+                    variant="ghost" size="icon"
                     onClick={() => setZoom(Math.min(200, zoom + 10))}
-                    className="p-1 text-[var(--text-secondary)] hover:text-white transition-colors"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
                 >
-                    <ZoomIn size={18} />
-                </button>
+                    <ZoomIn size={16} />
+                </Button>
             </div>
 
-            <div className="border-l border-[var(--border-light)] pl-4">
-                <button
+            <div className="border-l border-border pl-4">
+                <Button
+                    variant="ghost" size="icon"
                     onClick={() => setZoom(100)}
-                    className="p-1.5 text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
                 >
                     <Maximize size={16} />
-                </button>
+                </Button>
             </div>
         </div>
     );

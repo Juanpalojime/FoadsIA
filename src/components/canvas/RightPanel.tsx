@@ -2,7 +2,9 @@
 import React from 'react';
 import { Layer } from '../../types';
 import { Eye, EyeOff, Lock, Unlock, Plus, Image as ImageIcon, Type, Layout, Sparkles } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface RightPanelProps {
     layers: Layer[];
@@ -23,62 +25,65 @@ const RightPanel: React.FC<RightPanelProps> = ({ layers, onToggleVisibility, onT
     };
 
     return (
-        <aside className="w-80 bg-[var(--bg-card)] border-l border-[var(--border-light)] flex flex-col h-full overflow-hidden shrink-0">
-            <div className="p-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-main)]/30">
-                <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-[var(--text-secondary)]">Capas</h2>
-                <button
-                    onClick={onAddLayer}
-                    className="p-1.5 hover:bg-[var(--primary)]/10 text-[var(--primary)] rounded-lg transition-colors border border-[var(--primary)]/20"
-                >
+        <aside className="w-80 bg-card border-l border-border flex flex-col h-full overflow-hidden shrink-0">
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted/20">
+                <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-muted-foreground">Capas</h2>
+                <Button variant="ghost" size="icon" onClick={onAddLayer} className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
                     <Plus size={16} />
-                </button>
+                </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 custom-scrollbar">
-                {layers.map((layer) => (
-                    <div
-                        key={layer.id}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-light)] hover:border-[var(--primary)]/50 transition-all group"
-                    >
-                        <div className="p-2 bg-[var(--bg-main)] rounded-lg text-[var(--text-tertiary)] group-hover:text-[var(--primary)] transition-colors">
-                            {getIcon(layer.type)}
-                        </div>
+            <ScrollArea className="flex-1 p-4">
+                <div className="flex flex-col gap-2">
+                    {layers.map((layer) => (
+                        <div
+                            key={layer.id}
+                            className="flex items-center gap-3 p-3 rounded-xl bg-background border border-border hover:border-primary/50 transition-all group"
+                        >
+                            <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
+                                {getIcon(layer.type)}
+                            </div>
 
-                        <div className="flex-1 min-w-0">
-                            <span className="text-xs font-bold text-white truncate block uppercase tracking-tighter">
-                                {layer.name}
-                            </span>
-                            <span className="text-[9px] text-[var(--text-tertiary)] uppercase font-medium">
-                                {layer.type}
-                            </span>
-                        </div>
+                            <div className="flex-1 min-w-0">
+                                <span className="text-xs font-bold text-foreground truncate block uppercase tracking-tighter">
+                                    {layer.name}
+                                </span>
+                                <span className="text-[9px] text-muted-foreground uppercase font-medium">
+                                    {layer.type}
+                                </span>
+                            </div>
 
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => onToggleVisibility(layer.id)}
-                                className={clsx("p-1.5 rounded transition-colors", layer.visible ? "text-[var(--text-secondary)] hover:text-white" : "text-red-500 bg-red-500/10")}
-                            >
-                                {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                            </button>
-                            <button
-                                onClick={() => onToggleLock(layer.id)}
-                                className={clsx("p-1.5 rounded transition-colors", layer.locked ? "text-yellow-500 bg-yellow-500/10" : "text-[var(--text-secondary)] hover:text-white")}
-                            >
-                                {layer.locked ? <Lock size={14} /> : <Unlock size={14} />}
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onToggleVisibility(layer.id)}
+                                    className={cn("h-7 w-7", !layer.visible && "text-destructive bg-destructive/10 hover:bg-destructive/20 hover:text-destructive")}
+                                >
+                                    {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onToggleLock(layer.id)}
+                                    className={cn("h-7 w-7", layer.locked && "text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 hover:text-yellow-500")}
+                                >
+                                    {layer.locked ? <Lock size={14} /> : <Unlock size={14} />}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            </ScrollArea>
 
-            <div className="p-4 bg-[var(--bg-main)]/50 border-t border-[var(--border-light)]">
+            <div className="p-4 bg-muted/20 border-t border-border">
                 <div className="flex flex-col gap-3">
                     <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">VRAM Usage</span>
-                        <span className="text-[10px] font-mono text-[var(--primary)]">1.2 GB / 16 GB</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">VRAM Usage</span>
+                        <span className="text-[10px] font-mono text-primary">1.2 GB / 16 GB</span>
                     </div>
-                    <div className="w-full h-1 bg-[var(--border-light)] rounded-full overflow-hidden">
-                        <div className="h-full bg-[var(--primary)]" style={{ width: '12%' }}></div>
+                    <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: '12%' }}></div>
                     </div>
                 </div>
             </div>

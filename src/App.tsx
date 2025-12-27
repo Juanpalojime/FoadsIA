@@ -13,6 +13,7 @@ import Inspiration from './pages/Inspiration'
 import AdCreator from './pages/AdCreator'
 import CanvasEditor from './pages/CanvasEditor'
 import BrandVault from './pages/BrandVault'
+import { ExamplePage } from './pages/ExamplePage'
 
 import { useCreditsStore } from './store/useCreditsStore'
 
@@ -21,6 +22,15 @@ function App() {
 
   useEffect(() => {
     initializeCredits();
+
+    // Load Favicon
+    const savedFavicon = localStorage.getItem('app_favicon');
+    if (savedFavicon) {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = savedFavicon;
+      }
+    }
   }, [initializeCredits]);
 
   return (
@@ -41,6 +51,7 @@ function App() {
         <Route path="/canvas-editor" element={<CanvasEditor />} />
         <Route path="/brand-vault" element={<BrandVault />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/example" element={<ExamplePage />} />
       </Route>
     </Routes>
   )

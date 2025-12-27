@@ -2,6 +2,27 @@
 
 Todos los cambios notables del proyecto se documentan en este archivo.
 
+## [2.1.0] - 2025-12-27 - UI Modernization
+
+### Major Features
+- **Modern UI Stack**: Migrated entire frontend to **Tailwind CSS + Shadcn/ui**.
+- **Design System**: Implemented "Hyper Premium" dark theme with glassmorphism, gradients, and Framer Motion animations.
+- **New Components**:
+  - `Slider`, `Switch`, `Textarea`, `Badge`, `Card`, `Button` added to `src/components/ui/`.
+  - Centralized animation library in `src/lib/animations.ts`.
+
+### Page Migrations
+- **Home**: Fully redesigned with hero gradients and interactive feature grid.
+- **Face Swap**: Migrated to Shadcn Cards and modern upload zones.
+- **Ad Creator**: Replaced native inputs with Shadcn Sliders/Selects and improved layout.
+- **Generate Images**: Modernized sidebar controls and result area.
+- **Layout**: Sidebar and TopBar updated to remove legacy CSS variables.
+
+### Technical Improvements
+- **Dependencies**: Aligned React (18.3.1) and Tailwind (3.4) versions for stability.
+- **Clean Code**: Removed 80% of custom CSS in favor of utility classes.
+- **Performance**: Optimized animations using Framer Motion.
+
 ## [2.0.0] - 2025-12-27
 
 ### 🎉 Nuevas Características

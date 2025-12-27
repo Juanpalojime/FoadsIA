@@ -1,33 +1,44 @@
 import { useState, useEffect } from 'react';
-import { Folder, Trash2, Download, CloudSync, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Folder, Trash2, Download, CloudSync, CheckCircle2, RefreshCw, ZoomIn } from 'lucide-react';
 import { db, type Asset } from '../services/db';
-import clsx from 'clsx';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 export default function Assets() {
     const [assets, setAssets] = useState<Asset[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncSuccess, setSyncSuccess] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(-1);
 
     useEffect(() => {
         loadAssets();
     }, []);
 
     const loadAssets = async () => {
+        setLoading(true); // Ensure loading state is true on refresh
         try {
             const items = await db.getAllAssets();
             setAssets(items);
         } catch (e) {
             console.error(e);
         } finally {
-            setLoading(false);
+            // Fake loading delay for better UX feel
+            setTimeout(() => setLoading(false), 800);
         }
     };
 
     const handleSync = async () => {
         setIsSyncing(true);
         setSyncSuccess(false);
-        // Simulate network latency for cloud sync
         await new Promise(r => setTimeout(r, 2000));
         setIsSyncing(false);
         setSyncSuccess(true);
@@ -40,64 +51,146 @@ export default function Assets() {
         loadAssets();
     };
 
+    const slides = assets.filter(a => a.type === 'image').map(asset => ({ src: asset.content }));
+
     return (
-        <div className="max-w-6xl mx-auto h-full flex flex-col">
-            <div className="mb-6 flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold mb-2">Mis Archivos</h1>
-                    <p className="text-[var(--text-secondary)]">Gestiona tus videos e imágenes generados.</p>
-                </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleSync}
-                        disabled={isSyncing}
-                        className={clsx(
-                            "flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-bold text-xs uppercase tracking-widest border shadow-sm",
-                            syncSuccess
-                                ? "bg-[var(--success)]/10 border-[var(--success)] text-[var(--success)]"
-                                : "bg-[var(--bg-card)] border-[var(--border-light)] text-[var(--text-secondary)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                        )}
-                    >
-                        {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : syncSuccess ? <CheckCircle2 size={14} /> : <CloudSync size={14} />}
-                        {isSyncing ? "Sincronizando..." : syncSuccess ? "Sincronizado" : "Sincronizar Nube"}
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors text-xs font-bold shadow-[var(--shadow-glow)]" onClick={loadAssets}>
-                        REFRESCAR
-                    </button>
-                </div>
-            </div>
-
-            {loading ? (
-                <div className="flex-1 flex items-center justify-center text-[var(--text-tertiary)]">Cargando...</div>
-            ) : assets.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-tertiary)] border-2 border-dashed border-[var(--border-light)] rounded-2xl bg-[var(--bg-card)]/30">
-                    <Folder size={48} className="mb-4 opacity-50" />
-                    <p>Aún no has generado contenido.</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto pb-4 custom-scrollbar">
-                    {assets.map((asset) => (
-                        <div key={asset.id} className="group relative aspect-square bg-[var(--bg-card)] rounded-xl overflow-hidden border border-[var(--border-light)] hover:border-[var(--primary)] transition-all">
-                            {asset.type === 'image' && (
-                                <img src={asset.content} alt={asset.prompt} className="w-full h-full object-cover" />
+        <TooltipProvider>
+            <div className="max-w-7xl mx-auto h-full flex flex-col gap-8 pb-8">
+                <header className="flex justify-between items-end">
+                    <div>
+                        <h1 className="text-4xl font-black mb-2 text-foreground tracking-tight">Mis Archivos</h1>
+                        <p className="text-muted-foreground font-medium">Gestiona tu librería de activos generados.</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <Button
+                            variant={syncSuccess ? "secondary" : "outline"}
+                            onClick={handleSync}
+                            disabled={isSyncing}
+                            className={cn(
+                                "gap-2 text-[10px] uppercase font-black tracking-widest h-10 px-6 rounded-xl transition-all",
+                                syncSuccess && "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
                             )}
+                        >
+                            {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : syncSuccess ? <CheckCircle2 size={14} /> : <CloudSync size={14} />}
+                            {isSyncing ? "Sincronizando..." : syncSuccess ? "Nube Sincronizada" : "Sincronizar"}
+                        </Button>
+                        <Button onClick={loadAssets} className="gap-2 text-[10px] uppercase font-black tracking-widest h-10 px-6 rounded-xl shadow-lg hover:shadow-primary/20">
+                            Refrescar
+                        </Button>
+                    </div>
+                </header>
 
-                            {/* Overlay */}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                                <p className="text-xs text-white line-clamp-2 mb-2">{asset.prompt}</p>
-                                <div className="flex gap-2 justify-end">
-                                    <button onClick={() => handleDelete(asset.id!)} className="p-2 bg-red-500/20 text-red-500 rounded hover:bg-red-500 hover:text-white transition-colors">
-                                        <Trash2 size={14} />
-                                    </button>
-                                    <a href={asset.content} download={`asset-${asset.id}.png`} className="p-2 bg-[var(--primary)]/20 text-[var(--primary)] rounded hover:bg-[var(--primary)] hover:text-white transition-colors">
-                                        <Download size={14} />
-                                    </a>
+                <Card className="flex-1 bg-card/50 backdrop-blur-sm border-border rounded-[2.5rem] overflow-hidden shadow-xl flex flex-col">
+                    <ScrollArea className="flex-1">
+                        <div className="p-8">
+                            {loading ? (
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                                    {[...Array(10)].map((_, i) => (
+                                        <div key={i} className="aspect-square space-y-3">
+                                            <Skeleton className="w-full h-full rounded-2xl" />
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-3 w-3/4 rounded-full" />
+                                                <Skeleton className="h-3 w-1/2 rounded-full" />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            </div>
+                            ) : assets.length === 0 ? (
+                                <div className="h-[400px] flex flex-col items-center justify-center text-muted-foreground opacity-50 select-none">
+                                    <Folder size={64} className="mb-4 text-muted-foreground/50" />
+                                    <p className="font-bold text-lg">Librería Vacía</p>
+                                    <p className="text-sm">Genera algo increíble para empezar.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                                    {assets.map((asset, index) => (
+                                        <div
+                                            key={asset.id}
+                                            className="group relative aspect-square bg-muted/30 rounded-2xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300 shadow-sm hover:shadow-2xl hover:-translate-y-1"
+                                        >
+                                            {asset.type === 'image' && (
+                                                <img
+                                                    src={asset.content}
+                                                    alt={asset.prompt}
+                                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                    onClick={() => setLightboxIndex(index)}
+                                                />
+                                            )}
+
+                                            {/* Top Badges */}
+                                            <div className="absolute top-3 left-3 flex gap-2">
+                                                <Badge variant="secondary" className="backdrop-blur-md bg-black/40 text-white border-none text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-[-10px] group-hover:translate-y-0">
+                                                    {asset.type}
+                                                </Badge>
+                                            </div>
+
+                                            {/* Hover Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
+                                                <p className="text-[10px] text-white/80 line-clamp-2 mb-4 font-medium leading-relaxed">
+                                                    {asset.prompt}
+                                                </p>
+
+                                                <div className="flex gap-2 justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="secondary"
+                                                                className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md"
+                                                                onClick={() => setLightboxIndex(index)}
+                                                            >
+                                                                <ZoomIn size={14} />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Ver Fullscreen</TooltipContent>
+                                                    </Tooltip>
+
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="secondary"
+                                                                className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md"
+                                                                asChild
+                                                            >
+                                                                <a href={asset.content} download={`asset-${asset.id}.png`}>
+                                                                    <Download size={14} />
+                                                                </a>
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Descargar</TooltipContent>
+                                                    </Tooltip>
+
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="destructive"
+                                                                className="h-8 w-8 rounded-lg shadow-lg"
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(asset.id!); }}
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Eliminar</TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    ))}
-                </div>
-            )}
-        </div>
+                    </ScrollArea>
+                </Card>
+
+                <Lightbox
+                    open={lightboxIndex >= 0}
+                    index={lightboxIndex}
+                    close={() => setLightboxIndex(-1)}
+                    slides={slides}
+                />
+            </div>
+        </TooltipProvider>
     );
 }

@@ -1,42 +1,51 @@
+# Web & Infrastructure
 flask
 flask-cors
 flask-socketio
 eventlet
 pyngrok
+python-dotenv
+requests
+tqdm
+pydantic
+
+# core AI / ML
 torch
 torchvision
 torchaudio
 diffusers
 transformers
 accelerate
-insightface
-opencv-python-headless
-huggingface_hub
-faster-whisper
-moviepy
-imageio-ffmpeg
+safetensors
 einops
-onnx
-protobuf
-Pillow
-requests
-tqdm
-altair
-pydantic
-python-multipart
-python-dotenv
-uvicorn
-jinja2
-itsdangerous
-MarkupSafe
-Werkzeug
 numpy
 scipy
-matplotlib
-pandas
-scikit-learn
-scikit-image
-numba
-safetensors
+opencv-python-headless
+Pillow
+
+# Face & Animation (LivePortrait / FaceSwap)
+insightface
+onnx
 onnxruntime-gpu; platform_system == 'Linux'
 onnxruntime; platform_system == 'Windows'
+pyyaml
+omegaconf
+coloredlogs
+gradio
+
+# Media Processing (Audio/Video/Restoration)
+edge-tts
+faster-whisper
+moviepy==1.0.3
+imageio-ffmpeg
+basicsr
+gfpgan
+realesrgan
+
+# Tools
+huggingface_hub
+python-multipart
+MarkupSafe
+Werkzeug
+jinja2
+itsdangerous

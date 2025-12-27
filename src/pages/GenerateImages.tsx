@@ -1,10 +1,18 @@
-
 import { useState } from 'react';
-import { Sparkles, Image as ImageIcon, Wand2, Download, Settings2, ChevronDown, RefreshCw, AlertCircle, Maximize2 } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Wand2, Download, RefreshCw, AlertCircle, Maximize2, Zap, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import clsx from 'clsx';
 import { api } from '../services/api';
 import { db } from '../services/db';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { soundManager } from '@/lib/sounds';
 
 export default function GenerateImages() {
     const [prompt, setPrompt] = useState('');
@@ -12,12 +20,11 @@ export default function GenerateImages() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [resultImage, setResultImage] = useState<string | null>(null);
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Advanced Settings
-    const [steps, setSteps] = useState(4);
-    const [guidance, setGuidance] = useState(0.0);
+    const [steps, setSteps] = useState(25);
+    const [guidance, setGuidance] = useState(7.5);
     const [negativePrompt, setNegativePrompt] = useState('');
 
     const handleMagicPrompt = async () => {
@@ -46,6 +53,7 @@ export default function GenerateImages() {
             const response = await api.generateImage(prompt, aspectRatio, steps, guidance, negativePrompt);
             if (response.status === 'success' && response.image) {
                 setResultImage(response.image);
+                soundManager.playSuccess();
                 await db.addAsset({
                     type: 'image',
                     content: response.image,
@@ -64,235 +72,242 @@ export default function GenerateImages() {
     };
 
     return (
-        <div className="flex flex-col gap-8 pb-12">
-            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black mb-1 flex items-center gap-3">
-                        <Sparkles className="text-[var(--primary)] drop-shadow-[0_0_8px_var(--primary-glow)]" />
-                        Imagen Pro Hub
-                    </h1>
-                    <p className="text-[var(--text-secondary)] font-medium">Renderizado fotorrealista de alto nivel impulsado por SDXL.</p>
-                </div>
-                {error && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-red-500 text-xs font-bold shadow-lg"
-                    >
-                        <AlertCircle size={14} />
-                        {error}
-                    </motion.div>
-                )}
-            </header>
+        <TooltipProvider>
+            <div className="flex flex-col gap-8 pb-12 h-screen max-h-[calc(100vh-6rem)]">
+                <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 shrink-0">
+                    <div>
+                        <h1 className="text-3xl font-black mb-2 flex items-center gap-3 tracking-tight">
+                            <span className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
+                                <Sparkles className="w-8 h-8" />
+                            </span>
+                            Imagen Pro Hub
+                        </h1>
+                        <p className="text-muted-foreground font-medium text-lg">Renderizado fotorrealista de alto nivel impulsado por SDXL.</p>
+                    </div>
+                </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left: Controls */}
-                <aside className="lg:col-span-4 space-y-6">
-                    <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-[2.5rem] p-8 space-y-8 shadow-2xl overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/5 blur-3xl rounded-full translate-x-10 -translate-y-10 group-hover:scale-150 transition-transform duration-1000" />
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0">
+                    {/* Left: Controls */}
+                    <aside className="lg:col-span-4 h-full overflow-y-auto pr-2 custom-scrollbar">
+                        <Card className="rounded-[2.5rem] border-muted overflow-hidden relative shadow-lg h-full">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full" />
+                            <CardContent className="p-6 space-y-6 relative z-10">
+                                <Tabs defaultValue="txt2img" className="w-full">
+                                    <TabsList className="w-full grid grid-cols-2 mb-6">
+                                        <TabsTrigger value="txt2img" className="font-bold uppercase text-[10px] tracking-widest"><Zap size={14} className="mr-2" /> Text to Image</TabsTrigger>
+                                        <TabsTrigger value="img2img" className="font-bold uppercase text-[10px] tracking-widest" disabled><Layers size={14} className="mr-2" /> Image to Image</TabsTrigger>
+                                    </TabsList>
 
-                        <div className="flex flex-col gap-4 relative z-10">
-                            <div className="flex justify-between items-center px-1">
-                                <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-[0.2em]">Prompt Creativo</label>
-                                <button
-                                    onClick={handleMagicPrompt}
-                                    disabled={!prompt || isOptimizing}
-                                    className="px-3 py-1 bg-[var(--primary)]/10 text-[var(--primary)] text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-1.5 hover:bg-[var(--primary)]/20 transition-all disabled:opacity-30 active:scale-95"
-                                >
-                                    {isOptimizing ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                                    Mejorar con AI
-                                </button>
-                            </div>
-                            <textarea
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                                placeholder="Escribe tu visión aquí... (ej: 'Un deportivo futurista atravesando la ciudad neon en lluvia')"
-                                className="w-full h-40 bg-[var(--bg-input)]/50 border border-[var(--border-light)] rounded-2xl p-5 text-sm font-medium focus:border-[var(--primary)]/50 outline-none resize-none transition-all leading-relaxed shadow-inner placeholder:text-[var(--text-tertiary)]/50"
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-4 relative z-10">
-                            <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-[0.2em] px-1">Formato de Salida</label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { id: '1:1', label: '1:1', desc: 'SQUARE' },
-                                    { id: '16:9', label: '16:9', desc: 'CINÉ' },
-                                    { id: '9:16', label: '9:16', desc: 'REEL/STORY' },
-                                ].map((ratio) => (
-                                    <button
-                                        key={ratio.id}
-                                        onClick={() => setAspectRatio(ratio.id)}
-                                        className={clsx(
-                                            'flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border transition-all transform active:scale-95',
-                                            aspectRatio === ratio.id
-                                                ? 'bg-gradient-to-tr from-[var(--primary)] to-[var(--accent)] border-transparent text-white shadow-lg shadow-[var(--primary-glow)]'
-                                                : 'bg-[var(--bg-input)] border-[var(--border-light)] text-[var(--text-tertiary)] hover:border-white/20'
-                                        )}
-                                    >
-                                        <span className="text-xs font-black">{ratio.label}</span>
-                                        <span className="text-[9px] font-bold opacity-60 tracking-tighter">{ratio.desc}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Advanced Settings */}
-                        <div className="border-t border-[var(--border-light)] pt-6 relative z-10">
-                            <button
-                                onClick={() => setShowAdvanced(!showAdvanced)}
-                                className="w-full flex items-center justify-between text-[10px] font-black text-[var(--text-tertiary)] hover:text-white transition-colors uppercase tracking-[0.2em] px-1 group/btn"
-                            >
-                                <span className="flex items-center gap-2">
-                                    <Settings2 size={14} className="group-hover/btn:rotate-90 transition-transform duration-500" />
-                                    Avanzado
-                                </span>
-                                <ChevronDown size={14} className={clsx("transition-transform duration-500", showAdvanced && "rotate-180")} />
-                            </button>
-
-                            <AnimatePresence>
-                                {showAdvanced && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: 'auto', opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="overflow-hidden"
-                                    >
-                                        <div className="py-6 space-y-6">
-                                            <div className="space-y-3">
-                                                <div className="flex justify-between text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest px-1">
-                                                    <span>Quality Steps</span>
-                                                    <span className="text-[var(--primary)]">{steps}</span>
-                                                </div>
-                                                <input
-                                                    type="range" min="1" max="50" value={steps}
-                                                    onChange={(e) => setSteps(parseInt(e.target.value))}
-                                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-full appearance-none cursor-pointer accent-[var(--primary)]"
-                                                />
+                                    <TabsContent value="txt2img" className="space-y-6">
+                                        {/* Prompt Input */}
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex justify-between items-center px-1">
+                                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+                                                    Prompt
+                                                    <Badge variant="outline" className="text-[9px] h-4 px-1 rounded-sm border-primary/20 text-primary">Required</Badge>
+                                                </label>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            onClick={handleMagicPrompt}
+                                                            disabled={!prompt || isOptimizing}
+                                                            className="h-6 text-[9px] font-black uppercase tracking-widest gap-1.5 px-2"
+                                                        >
+                                                            {isOptimizing ? <RefreshCw size={10} className="animate-spin" /> : <Wand2 size={10} />}
+                                                            Magic
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Mejorar prompt con GPT-4</TooltipContent>
+                                                </Tooltip>
                                             </div>
-                                            <div className="space-y-3">
-                                                <div className="flex justify-between text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest px-1">
-                                                    <span>Prompt Strength</span>
-                                                    <span className="text-[var(--primary)]">{guidance}</span>
-                                                </div>
-                                                <input
-                                                    type="range" min="0" max="10" step="0.5" value={guidance}
-                                                    onChange={(e) => setGuidance(parseFloat(e.target.value))}
-                                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-full appearance-none cursor-pointer accent-[var(--primary)]"
-                                                />
-                                            </div>
-                                            <div className="space-y-3">
-                                                <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest px-1">Filtro Negativo</label>
-                                                <textarea
-                                                    value={negativePrompt}
-                                                    onChange={(e) => setNegativePrompt(e.target.value)}
-                                                    placeholder="Ej: borroso, deforme, texto, marca de agua..."
-                                                    className="w-full h-24 bg-[var(--bg-input)] border border-[var(--border-light)] rounded-2xl p-4 text-xs font-medium focus:border-[var(--primary)]/50 outline-none resize-none transition-all shadow-inner"
-                                                />
+                                            <Textarea
+                                                value={prompt}
+                                                onChange={(e) => setPrompt(e.target.value)}
+                                                placeholder="Describe tu imaginación con el mayor detalle posible..."
+                                                className="min-h-[140px] bg-muted/30 border-2 border-border focus-visible:border-primary rounded-2xl p-4 text-sm font-medium resize-y shadow-sm transition-all focus:bg-background"
+                                            />
+                                        </div>
+
+                                        {/* Aspect Ratio */}
+                                        <div className="flex flex-col gap-4">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Dimensiones</label>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {[
+                                                    { id: '1:1', label: '1:1', desc: 'Square 1024x1024' },
+                                                    { id: '16:9', label: '16:9', desc: 'Cinematic 1344x768' },
+                                                    { id: '9:16', label: '9:16', desc: 'Social 768x1344' },
+                                                ].map((ratio) => (
+                                                    <button
+                                                        key={ratio.id}
+                                                        onClick={() => setAspectRatio(ratio.id)}
+                                                        className={cn(
+                                                            'flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border transition-all transform active:scale-95 text-center',
+                                                            aspectRatio === ratio.id
+                                                                ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]'
+                                                                : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                                                        )}
+                                                    >
+                                                        <span className="text-xs font-black">{ratio.label}</span>
+                                                        <span className="text-[8px] font-bold opacity-70 tracking-tight leading-none">{ratio.desc}</span>
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
 
-                        <button
-                            onClick={handleGenerate}
-                            disabled={!prompt || isGenerating}
-                            className="w-full py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] disabled:opacity-30 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl shadow-[var(--primary-glow)] flex items-center justify-center gap-3 mt-4 active:scale-95 group overflow-hidden relative"
-                        >
-                            <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                            {isGenerating ? (
-                                <>
-                                    <RefreshCw className="animate-spin" size={18} />
-                                    Renderizando...
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles size={18} />
-                                    Generar Píxeles
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </aside>
+                                        {/* Advanced Settings Accordion */}
+                                        <Accordion type="single" collapsible className="w-full border-t border-border mt-4">
+                                            <AccordionItem value="advanced" className="border-b-0">
+                                                <AccordionTrigger className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] hover:text-foreground hover:no-underline py-4">
+                                                    Configuración Avanzada
+                                                </AccordionTrigger>
+                                                <AccordionContent className="space-y-6 pt-2 pb-4 px-1">
+                                                    <div className="space-y-4">
+                                                        <div className="flex justify-between text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                                                            <span>Steps (Iteraciones)</span>
+                                                            <span className="text-primary bg-primary/10 px-2 rounded">{steps}</span>
+                                                        </div>
+                                                        <Slider
+                                                            value={[steps]}
+                                                            min={10} max={50} step={1}
+                                                            onValueChange={(val) => setSteps(val[0])}
+                                                            className="py-2"
+                                                        />
+                                                    </div>
 
-                {/* Right: Results */}
-                <main className="lg:col-span-8">
-                    <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-[3rem] overflow-hidden relative flex flex-col min-h-[500px] lg:h-[750px] shadow-2xl group/result">
-                        {!resultImage && !isGenerating ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-tertiary)] p-12 text-center select-none">
-                                <div className="w-24 h-24 bg-white/5 rounded-[2rem] flex items-center justify-center mb-8 border border-white/5 shadow-inner group-hover/result:scale-110 transition-transform duration-700">
-                                    <ImageIcon size={40} className="opacity-10" />
-                                </div>
-                                <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tight">Estudio en Espera</h3>
-                                <p className="text-sm max-w-xs font-medium opacity-50">Configura tu prompt y presiona generar para ver la magia de Juggernaut XL.</p>
-                            </div>
-                        ) : (
-                            <div className="flex-1 relative flex items-center justify-center p-6 bg-black/40">
-                                <AnimatePresence>
-                                    {isGenerating && (
-                                        <motion.div
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[var(--bg-main)]/80 backdrop-blur-xl"
+                                                    <div className="space-y-4">
+                                                        <div className="flex justify-between text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                                                            <span>Guidance Scale (CFG)</span>
+                                                            <span className="text-primary bg-primary/10 px-2 rounded">{guidance}</span>
+                                                        </div>
+                                                        <Slider
+                                                            value={[guidance]}
+                                                            min={1} max={20} step={0.5}
+                                                            onValueChange={(val) => setGuidance(val[0])}
+                                                            className="py-2"
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Prompt Negativo</label>
+                                                        <Textarea
+                                                            value={negativePrompt}
+                                                            onChange={(e) => setNegativePrompt(e.target.value)}
+                                                            placeholder="Elementos a excluir..."
+                                                            className="h-20 bg-muted/30 border-border text-xs rounded-xl"
+                                                        />
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>
+
+                                        <Button
+                                            onClick={handleGenerate}
+                                            disabled={!prompt || isGenerating}
+                                            size="lg"
+                                            className="w-full py-8 text-sm font-black uppercase tracking-[0.2em] shadow-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-2xl relative overflow-hidden group transition-all hover:scale-[1.02] active:scale-[0.98]"
                                         >
-                                            <div className="relative w-24 h-24 mb-8">
-                                                <div className="absolute inset-0 border-4 border-[var(--primary)]/10 rounded-full"></div>
-                                                <div className="absolute inset-0 border-4 border-t-[var(--primary)] border-r-[var(--accent)] rounded-full animate-spin"></div>
-                                                <div className="absolute inset-4 bg-gradient-to-tr from-[var(--primary)]/20 to-[var(--accent)]/20 rounded-full flex items-center justify-center">
-                                                    <RefreshCw size={24} className="text-white animate-pulse" />
-                                                </div>
+                                            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                                            <div className="relative flex items-center gap-3">
+                                                {isGenerating ? <RefreshCw className="animate-spin" size={20} /> : <Sparkles size={20} className="fill-white/20" />}
+                                                {isGenerating ? 'Generando...' : 'Generar (4 Tokens)'}
                                             </div>
-                                            <span className="text-base font-black uppercase tracking-[0.25em] text-white">Generando Neuronal...</span>
-                                            <p className="text-xs text-[var(--text-tertiary)] mt-2 font-bold uppercase tracking-widest">Ajustando VRAM & Parámetros</p>
+                                        </Button>
+                                    </TabsContent>
+                                </Tabs>
+                            </CardContent>
+                        </Card>
+                    </aside>
+
+                    {/* Right: Results */}
+                    <main className="lg:col-span-8 flex flex-col h-full min-h-0">
+                        {error && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl flex items-center gap-3 text-destructive font-bold text-sm shadow-lg"
+                            >
+                                <AlertCircle size={18} />
+                                {error}
+                            </motion.div>
+                        )}
+
+                        <Card className="flex-1 border-border bg-card/50 backdrop-blur-sm rounded-[3rem] overflow-hidden shadow-2xl group flex flex-col justify-center relative border-2 border-dashed border-muted-foreground/10">
+                            {!resultImage && !isGenerating ? (
+                                <div className="flex flex-col items-center justify-center p-12 text-center select-none opacity-40">
+                                    <div className="w-32 h-32 bg-muted/30 rounded-[2.5rem] flex items-center justify-center mb-8 rotate-12">
+                                        <ImageIcon size={64} className="text-muted-foreground -rotate-12" />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-foreground mb-3 uppercase tracking-tight">Estudio Listo</h3>
+                                    <p className="text-base text-muted-foreground font-medium max-w-sm leading-relaxed">Configura los parámetros a la izquierda y observa la magia ocurrir aquí.</p>
+                                </div>
+                            ) : (
+                                <div className="relative w-full h-full flex items-center justify-center bg-black/5 p-4">
+                                    <AnimatePresence>
+                                        {isGenerating && (
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/90 backdrop-blur-xl"
+                                            >
+                                                <div className="relative w-32 h-32 mb-8">
+                                                    <div className="absolute inset-0 border-4 border-primary/10 rounded-full"></div>
+                                                    <div className="absolute inset-0 border-4 border-t-primary border-r-purple-500 rounded-full animate-spin"></div>
+                                                    <div className="absolute inset-4 bg-gradient-to-tr from-primary/20 to-purple-500/20 rounded-full flex items-center justify-center">
+                                                        <RefreshCw size={32} className="text-primary animate-pulse" />
+                                                    </div>
+                                                </div>
+                                                <span className="text-lg font-black uppercase tracking-[0.25em] text-foreground">Creando...</span>
+                                                <p className="text-xs text-muted-foreground mt-3 font-bold uppercase tracking-widest animate-pulse">Optimizando Tensores Difusos</p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {resultImage && !isGenerating && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            className="relative flex items-center justify-center w-full h-full"
+                                        >
+                                            <img
+                                                src={resultImage}
+                                                alt="AI Generated"
+                                                className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                                            />
+
+                                            {/* Floating Actions */}
+                                            <div className="absolute bottom-6 right-6 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-12 w-12 rounded-2xl backdrop-blur-xl bg-black/50 hover:bg-black/70 text-white border border-white/10"
+                                                    onClick={() => window.open(resultImage, '_blank')}
+                                                >
+                                                    <Maximize2 size={20} />
+                                                </Button>
+                                                <Button
+                                                    className="h-12 px-6 rounded-2xl bg-gradient-to-r from-primary to-purple-600 text-white shadow-xl hover:shadow-2xl border-none font-black uppercase tracking-widest text-xs gap-2"
+                                                    onClick={() => {
+                                                        const link = document.createElement('a');
+                                                        link.href = resultImage;
+                                                        link.download = `EnfoadsIA-${Date.now()}.png`;
+                                                        link.click();
+                                                    }}
+                                                >
+                                                    <Download size={18} />
+                                                    Descargar HD
+                                                </Button>
+                                            </div>
                                         </motion.div>
                                     )}
-                                </AnimatePresence>
-
-                                {resultImage && !isGenerating && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95, filter: 'blur(20px)' }}
-                                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                                        transition={{ duration: 0.8, ease: "easeOut" }}
-                                        className="h-full w-full flex items-center justify-center relative"
-                                    >
-                                        <img
-                                            src={resultImage}
-                                            alt="Generated content"
-                                            className="max-w-full max-h-full object-contain rounded-2xl shadow-[0_0_100px_-20px_var(--primary-glow)]"
-                                        />
-
-                                        {/* Action Controls */}
-                                        <div className="absolute bottom-8 right-8 flex gap-4">
-                                            <button
-                                                className="p-4 bg-[var(--bg-card)]/80 hover:bg-white hover:text-black backdrop-blur-xl rounded-2xl text-white transition-all border border-white/10 shadow-2xl active:scale-90"
-                                                title="Maximizar"
-                                                onClick={() => window.open(resultImage, '_blank')}
-                                            >
-                                                <Maximize2 size={20} />
-                                            </button>
-                                            <button
-                                                className="p-4 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] backdrop-blur-xl rounded-2xl text-white transition-all shadow-2xl shadow-[var(--primary-glow)] hover:scale-105 active:scale-90 flex items-center gap-2"
-                                                title="Descargar Alta Resolución"
-                                                onClick={() => {
-                                                    const link = document.createElement('a');
-                                                    link.href = resultImage;
-                                                    link.download = `EnfoadsIA-PRO-${Date.now()}.png`;
-                                                    link.click();
-                                                }}
-                                            >
-                                                <Download size={20} />
-                                                <span className="text-xs font-black uppercase tracking-widest">HD</span>
-                                            </button>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </main>
+                                </div>
+                            )}
+                        </Card>
+                    </main>
+                </div>
             </div>
-        </div>
+        </TooltipProvider>
     );
 }

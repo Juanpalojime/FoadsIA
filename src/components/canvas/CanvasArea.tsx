@@ -2,7 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { Layer, Selection } from '../../types';
 import { Sparkles, Loader2 } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface CanvasAreaProps {
     zoom: number;
@@ -44,7 +45,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ zoom, layers, onGenerate, isGen
     };
 
     return (
-        <div className="flex-1 overflow-hidden bg-[var(--bg-main)] relative flex items-center justify-center cursor-crosshair">
+        <div className="flex-1 overflow-hidden bg-muted/40 relative flex items-center justify-center cursor-crosshair">
             <div
                 ref={canvasRef}
                 onMouseDown={handleMouseDown}
@@ -55,13 +56,13 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ zoom, layers, onGenerate, isGen
                     width: '1080px',
                     height: '1080px'
                 }}
-                className="bg-white shadow-[0_0_100px_rgba(0,0,0,0.5)] relative origin-center transition-transform duration-200"
+                className="bg-white shadow-2xl relative origin-center transition-transform duration-200"
             >
                 {/* Render Layers */}
                 {[...layers].reverse().map((layer) => (
                     <div
                         key={layer.id}
-                        className={clsx(
+                        className={cn(
                             "absolute inset-0 transition-opacity",
                             !layer.visible && "opacity-0 invisible"
                         )}
@@ -74,15 +75,15 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ zoom, layers, onGenerate, isGen
                         )}
                         {layer.type === 'text' && (
                             <div className="flex items-center justify-center h-full">
-                                <h1 className="text-8xl font-black text-black text-center px-20 select-none">{layer.content}</h1>
+                                <h1 className="text-8xl font-black text-black text-center px-20 select-none drop-shadow-lg">{layer.content}</h1>
                             </div>
                         )}
                         {layer.type === 'ai' && (
                             <div className="w-full h-full relative">
                                 {layer.isProcessing ? (
-                                    <div className="w-full h-full bg-blue-500/10 flex flex-col items-center justify-center gap-4">
-                                        <Loader2 size={64} className="text-blue-500 animate-spin" />
-                                        <span className="text-blue-500 font-bold uppercase tracking-widest text-sm">IA Procesando...</span>
+                                    <div className="w-full h-full bg-primary/10 flex flex-col items-center justify-center gap-4">
+                                        <Loader2 size={64} className="text-primary animate-spin" />
+                                        <span className="text-primary font-bold uppercase tracking-widest text-sm">IA Procesando...</span>
                                     </div>
                                 ) : (
                                     <img src={layer.content} alt={layer.name} className="w-full h-full object-cover" />
@@ -101,15 +102,15 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ zoom, layers, onGenerate, isGen
                             width: Math.abs(selection.width),
                             height: Math.abs(selection.height),
                         }}
-                        className="absolute border-2 border-[var(--primary)] bg-[var(--primary)]/10 z-40"
+                        className="absolute border-2 border-primary bg-primary/20 z-40"
                     >
                         {!isSelecting && Math.abs(selection.width) > 10 && (
-                            <button
+                            <Button
                                 onClick={() => onGenerate(selection)}
-                                className="absolute -bottom-12 left-1/2 -translate-x-1/2 bg-[var(--primary)] text-white px-4 py-2 rounded-lg shadow-xl flex items-center gap-2 whitespace-nowrap text-sm font-bold hover:scale-105 transition-transform"
+                                className="absolute -bottom-12 left-1/2 -translate-x-1/2 shadow-xl gap-2 font-bold hover:scale-105 transition-transform"
                             >
                                 <Sparkles size={16} /> Generar Aquí
-                            </button>
+                            </Button>
                         )}
                     </div>
                 )}

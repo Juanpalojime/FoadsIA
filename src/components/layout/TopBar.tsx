@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Cpu, Bell, User, Menu, Activity } from 'lucide-react';
+import { Cpu, Bell, User, Menu, Activity, Sparkles, Zap } from 'lucide-react';
 import { api } from '../../services/api';
-import clsx from 'clsx';
+import { useCreditsStore } from '../../store/useCreditsStore';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface TopBarProps {
     onMenuClick?: () => void;
@@ -9,6 +12,7 @@ interface TopBarProps {
 
 export default function TopBar({ onMenuClick }: TopBarProps) {
     const [gpuStatus, setGpuStatus] = useState<any>(null);
+    const { credits } = useCreditsStore();
 
     useEffect(() => {
         const checkGpu = async () => {
@@ -25,85 +29,73 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
     }, []);
 
     return (
-        <header className="h-20 px-4 lg:px-8 border-b border-[var(--border-light)] bg-[var(--bg-main)]/50 backdrop-blur-xl flex items-center justify-between sticky top-0 z-[50]">
+        <header className="h-20 px-4 lg:px-8 border-b border-border bg-background/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-[40]">
             <div className="flex items-center gap-4">
                 {/* Mobile Menu Button */}
-                <button
+                <Button
+                    variant="outline"
+                    size="icon"
                     onClick={onMenuClick}
-                    className="lg:hidden p-2.5 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl text-white hover:bg-[var(--bg-hover)] transition-all active:scale-95"
+                    className="lg:hidden"
                 >
                     <Menu size={22} />
-                </button>
+                </Button>
 
                 {/* GPU Status Badge */}
                 {gpuStatus && (
-                    <div className="flex items-center gap-3 px-4 py-2 bg-[var(--bg-card)]/50 rounded-2xl border border-[var(--border-light)] shadow-lg group hover:border-[var(--primary)]/30 transition-all">
-                        <div className={clsx(
-                            "w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]",
-                            gpuStatus.status === 'online' ? "bg-emerald-400 animate-pulse shadow-[0_0_12px_#34d399]" : "bg-amber-400"
+                    <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-card/50 rounded-2xl border border-border shadow-sm group hover:border-primary/30 transition-all">
+                        <div className={cn(
+                            "w-2.5 h-2.5 rounded-full shadow-sm",
+                            gpuStatus.status === 'online' ? "bg-emerald-400 animate-pulse shadow-emerald-400/50" : "bg-amber-400"
                         )}></div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-[0.1em] flex items-center gap-1.5">
-                                <Cpu size={11} className="text-[var(--primary)]" /> {gpuStatus.device || 'Buscando Engine...'}
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.1em] flex items-center gap-1.5">
+                                <Cpu size={11} className="text-primary" /> {gpuStatus.device || 'Buscando Cloud Engine...'}
                             </span>
-                            {gpuStatus.status === 'online' ? (
+                            {gpuStatus.status === 'online' && (
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-black text-white">
+                                    <span className="text-[11px] font-black text-foreground">
                                         VRAM: {gpuStatus.vram_used}GB / {gpuStatus.vram_total}GB
                                     </span>
                                     <Activity size={10} className="text-emerald-400" />
                                 </div>
-                            ) : (
-                                <span className="text-[11px] font-black text-amber-400 uppercase tracking-tight">Servidor en Reposo</span>
                             )}
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="flex items-center gap-3 lg:gap-5">
-                {/* Credits Display (Optional but premium) */}
-                <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--border-light)] rounded-2xl">
-                    <Sparkles size={14} className="text-[var(--primary)]" />
-                    <span className="text-xs font-bold text-white">Pro Plan</span>
+            <div className="flex items-center gap-3 lg:gap-6">
+                {/* TOKEN COUNTER - LEONARDO STYLE */}
+                <div className="flex items-center gap-3 pl-4 pr-1">
+                    <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Credits</span>
+                        </div>
+                        <span className="text-lg font-black leading-none text-foreground flex items-center gap-1">
+                            <Zap size={14} className="text-amber-500 fill-amber-500" /> {credits}
+                        </span>
+                    </div>
+                    <Button
+                        size="sm"
+                        className="h-9 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 shadow-lg shadow-amber-500/20 rounded-xl text-xs font-black uppercase tracking-widest gap-2 transition-all hover:scale-105"
+                    >
+                        Upgrade
+                    </Button>
                 </div>
 
-                <div className="h-6 w-px bg-[var(--border-light)] mx-1 lg:mx-2"></div>
+                <div className="h-8 w-px bg-border mx-1 hidden sm:block"></div>
 
-                <button className="relative p-2.5 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl text-[var(--text-secondary)] hover:text-white hover:border-white/20 transition-all group overflow-hidden">
-                    <Bell size={20} className="group-hover:shake" />
-                    <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[var(--accent)] rounded-full border-2 border-[var(--bg-card)] shadow-[0_0_8px_var(--accent-glow)]"></span>
-                </button>
-
-                <div className="flex items-center gap-3 pl-2">
+                <div className="flex items-center gap-3">
                     <div className="hidden lg:flex flex-col items-end">
-                        <span className="text-sm font-bold text-white leading-tight">Juan Pablo</span>
-                        <span className="text-[10px] text-[var(--text-tertiary)] font-medium">ADMIN</span>
+                        <span className="text-sm font-bold text-foreground leading-tight">Juan Pablo</span>
+                        <Badge variant="secondary" className="text-[9px] font-bold h-4 px-1.5 bg-primary/10 text-primary border-primary/20">PRO</Badge>
                     </div>
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[var(--primary)] to-[var(--accent)] border border-white/20 shadow-xl flex items-center justify-center text-white ring-2 ring-white/5 hover:ring-white/20 transition-all cursor-pointer">
-                        <User size={22} />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-purple-600 border border-white/20 shadow-lg flex items-center justify-center text-white ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer">
+                        <User size={20} />
                     </div>
                 </div>
             </div>
         </header>
     );
 }
-
-// Icons
-const Sparkles = ({ size, className }: any) => (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-    >
-        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-        <path d="M5 3v4" /><path d="M19 17v4" /><path d="M3 5h4" /><path d="M17 19h4" />
-    </svg>
-);
