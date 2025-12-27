@@ -54,8 +54,8 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                             </span>
                             {gpuStatus.status === 'online' && (
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-black text-foreground">
-                                        VRAM: {gpuStatus.vram_used}GB / {gpuStatus.vram_total}GB
+                                    <span className="text-[10px] font-black text-foreground">
+                                        VRAM: {gpuStatus.vram_allocated_gb}GB / {gpuStatus.vram_total_gb}GB
                                     </span>
                                     <Activity size={10} className="text-emerald-400" />
                                 </div>

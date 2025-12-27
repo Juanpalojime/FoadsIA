@@ -54,7 +54,9 @@ export default function Settings() {
 
         try {
             setStatus('idle');
-            const response = await fetch(`${cleanUrl}/`);
+            const response = await fetch(`${cleanUrl}/`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
             const data = await response.json();
             if (data.status === 'online') {
                 setStatus('success');

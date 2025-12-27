@@ -1,6 +1,6 @@
 
 const getBaseUrl = () => {
-    return localStorage.getItem('FOADS_API_URL') || 'https://bernardina-overslow-tonie.ngrok-free.dev';
+    return localStorage.getItem('FOADS_API_URL') || 'https://spriggiest-pluggable-roosevelt.ngrok-free.dev'; // Force HTTPS for Ngrok
 };
 
 export interface GenerateImageResponse {
@@ -14,7 +14,9 @@ export const api = {
         try {
             const url = getBaseUrl();
             if (!url) return false;
-            const res = await fetch(`${url}/`);
+            const res = await fetch(`${url}/`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
             const data = await res.json();
             return data.status === 'online';
         } catch (e) {
@@ -29,7 +31,10 @@ export const api = {
         try { // Re-added try-catch for consistency with other methods and GenerateImageResponse type
             const response = await fetch(`${baseUrl}/generate-image`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({ prompt, aspect_ratio, steps, guidance, negative_prompt }),
             });
             if (!response.ok) {
@@ -50,7 +55,10 @@ export const api = {
         try {
             const response = await fetch(`${baseUrl}/magic-prompt`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({ prompt }),
             });
             if (!response.ok) {
@@ -71,7 +79,10 @@ export const api = {
         try {
             const res = await fetch(`${url}/face-swap`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({ source_image: sourceImage, target_image: targetImage })
             });
 
@@ -94,7 +105,10 @@ export const api = {
         try {
             const res = await fetch(`${url}/render-video`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({
                     script,
                     avatar_id: avatarId,
@@ -121,7 +135,10 @@ export const api = {
         try {
             const res = await fetch(`${url}/render-multi-scene`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({ scenes })
             });
 
@@ -141,7 +158,9 @@ export const api = {
         const baseUrl = getBaseUrl();
         if (!baseUrl) return { status: 'offline' };
         try {
-            const response = await fetch(`${baseUrl}/gpu-status`);
+            const response = await fetch(`${baseUrl}/gpu-status`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
             return response.json();
         } catch (e) {
             return { status: 'offline' };
@@ -154,7 +173,10 @@ export const api = {
         try {
             const response = await fetch(`${baseUrl}/live-portrait`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({ image, audio }),
             });
             return response.json();
@@ -167,7 +189,9 @@ export const api = {
         const baseUrl = getBaseUrl();
         if (!baseUrl) throw new Error('API URL not configured');
         try {
-            const response = await fetch(`${baseUrl}/avatars`);
+            const response = await fetch(`${baseUrl}/avatars`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
             return response.json();
         } catch (e: any) {
             return { status: 'error', message: e.message };

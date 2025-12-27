@@ -17,6 +17,17 @@ try:
 except ImportError:
     print("Instance warm-up: edge-tts not found yet")
 
+# Import custom services
+try:
+    from services.cache_service import get_cache_service
+    from services.upscale_service import get_esrgan_service
+    from services.liveportrait_service import get_liveportrait_service
+    from services.subtitle_service import get_subtitle_service
+    from middleware.rate_limiter import get_rate_limiter, rate_limit
+except ImportError as e:
+    print(f"[!] Service import warning: {e}")
+    print("[!] Some features may not be available")
+
 # Initialize Flask App & SocketIO
 app = Flask(__name__)
 CORS(app)
@@ -425,6 +436,7 @@ def face_swap():
         }), 500
 
 @app.route('/generate-image', methods=['POST'])
+@rate_limit('/generate-image')
 def generate_image():
     import torch
     import traceback
@@ -435,25 +447,60 @@ def generate_image():
     try:
         data = request.json
         prompt = data.get('prompt')
+        steps = data.get('steps', 4)
+        guidance = data.get('guidance_scale', 0)
         
         if not prompt:
             return jsonify({"status": "error", "message": "Prompt vacío o no proporcionado"}), 400
         
         print(f"[*] Generating image for prompt: {prompt[:50]}...")
         
+        # Intentar obtener del caché
+        try:
+            cache_service = get_cache_service()
+            cache_key = cache_service.get_cache_key(prompt, steps, guidance)
+            cached_image = cache_service.get_cached_image(cache_key)
+            
+            if cached_image:
+                import base64
+                img_str = base64.b64encode(cached_image).decode('utf-8')
+                return jsonify({
+                    "status": "success", 
+                    "image": f"data:image/png;base64,{img_str}",
+                    "cached": True
+                })
+        except Exception as cache_error:
+            print(f"[!] Cache error (continuing without cache): {cache_error}")
+        
+        # Generar imagen
         pipe = load_sdxl_model()
         
         print(f"[*] Running SDXL inference...")
-        image = pipe(prompt, num_inference_steps=4, guidance_scale=0).images[0]
+        image = pipe(prompt, num_inference_steps=steps, guidance_scale=guidance).images[0]
         
         print(f"[*] Encoding image to base64...")
         import io, base64
         buffered = io.BytesIO()
         image.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        image_bytes = buffered.getvalue()
+        img_str = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Guardar en caché
+        try:
+            cache_service.save_to_cache(
+                cache_key, 
+                image_bytes,
+                metadata={'prompt': prompt, 'steps': steps, 'guidance': guidance}
+            )
+        except Exception as cache_error:
+            print(f"[!] Failed to save to cache: {cache_error}")
         
         print(f"[✓] Image generated successfully")
-        return jsonify({"status": "success", "image": f"data:image/png;base64,{img_str}"})
+        return jsonify({
+            "status": "success", 
+            "image": f"data:image/png;base64,{img_str}",
+            "cached": False
+        })
         
     except Exception as e:
         error_trace = traceback.format_exc()
@@ -549,19 +596,190 @@ def live_portrait():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/enhance-media', methods=['POST'])
+@rate_limit('/enhance-media')
 def enhance_media():
     """Upscaling con RealESRGAN."""
+    import traceback
+    
     try:
         data = request.json
-        # Implementación Stub que pasaría a RealESRGAN
-        # cmd = ["python", "Real-ESRGAN/inference_realesrgan.py", ...]
-        return jsonify({ 
-            "status": "success", 
-            "url": data.get("media_url"), 
-            "message": "Enhancement scheduled (RealESRGAN integration pending)" 
+        image_data = data.get('image')  # Base64 image
+        scale = data.get('scale', 4.0)  # Upscale factor
+        model_name = data.get('model', 'RealESRGAN_x4plus')
+        
+        if not image_data:
+            return jsonify({
+                "status": "error",
+                "message": "No image provided"
+            }), 400
+        
+        print(f"[*] Upscaling image with scale {scale}x...")
+        
+        # Obtener servicio de upscaling
+        from services.esrgan_service import get_esrgan_service
+        esrgan_service = get_esrgan_service()
+        
+        # Offload otros modelos
+        offload_models(except_model='esrgan')
+        
+        # Upscale la imagen
+        upscaled_image = esrgan_service.upscale_from_base64(image_data, outscale=scale)
+        
+        # Registrar en loaded_models
+        loaded_models['esrgan'] = esrgan_service
+        
+        print(f"[✓] Image upscaled successfully")
+        
+        return jsonify({
+            "status": "success",
+            "image": upscaled_image,
+            "scale": scale,
+            "model": model_name
+        })
+        
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(f"[!] Upscaling Error: {str(e)}")
+        print(f"[!] Traceback:\n{error_trace}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "type": type(e).__name__
+        }), 500
+
+# ============================================================
+# MONITORING & STATS ENDPOINTS
+# ============================================================
+
+@app.route('/api/cache/stats', methods=['GET'])
+def cache_stats():
+    """Obtiene estadísticas del sistema de caché."""
+    try:
+        cache_service = get_cache_service()
+        stats = cache_service.get_cache_stats()
+        return jsonify({
+            "status": "success",
+            **stats
         })
     except Exception as e:
-         return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/cache/clear', methods=['POST'])
+def clear_cache():
+    """Limpia el caché de imágenes."""
+    try:
+        data = request.json or {}
+        max_age_days = data.get('max_age_days', 7)
+        
+        cache_service = get_cache_service()
+        cache_service.clear_old_cache(max_age_days)
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Cache cleared (entries older than {max_age_days} days)"
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/rate-limit/stats', methods=['GET'])
+def rate_limit_stats():
+    """Obtiene estadísticas del rate limiter."""
+    try:
+        limiter = get_rate_limiter()
+        stats = limiter.get_stats()
+        return jsonify({
+            "status": "success",
+            **stats
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/services/status', methods=['GET'])
+def services_status():
+    """Obtiene el estado de todos los servicios."""
+    try:
+        import torch
+        
+        status = {
+            "gpu": {
+                "available": torch.cuda.is_available(),
+                "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
+            },
+            "services": {
+                "cache": True,  # Siempre disponible
+                "rate_limiter": True,  # Siempre disponible
+            }
+        }
+        
+        # Check LivePortrait
+        try:
+            lp_service = get_liveportrait_service()
+            status["services"]["liveportrait"] = lp_service.get_status()
+        except:
+            status["services"]["liveportrait"] = {"available": False}
+        
+        # Check Real-ESRGAN
+        try:
+            esrgan_service = get_esrgan_service()
+            status["services"]["esrgan"] = {"available": True}
+        except:
+            status["services"]["esrgan"] = {"available": False}
+        
+        # Check Whisper
+        try:
+            subtitle_service = get_subtitle_service()
+            status["services"]["whisper"] = {"available": True}
+        except:
+            status["services"]["whisper"] = {"available": False}
+        
+        return jsonify({
+            "status": "success",
+            **status
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/system/info', methods=['GET'])
+def system_info():
+    """Obtiene información completa del sistema."""
+    try:
+        import torch
+        import platform
+        
+        info = {
+            "system": {
+                "platform": platform.system(),
+                "python_version": platform.python_version(),
+            },
+            "gpu": {},
+            "models_loaded": list(loaded_models.keys()),
+            "jobs": {
+                "total": len(jobs_status),
+                "queued": sum(1 for j in jobs_status.values() if j['status'] == 'queued'),
+                "processing": sum(1 for j in jobs_status.values() if j['status'] == 'processing'),
+                "completed": sum(1 for j in jobs_status.values() if j['status'] == 'completed'),
+                "failed": sum(1 for j in jobs_status.values() if j['status'] == 'failed'),
+            }
+        }
+        
+        if torch.cuda.is_available():
+            info["gpu"] = {
+                "available": True,
+                "device": torch.cuda.get_device_name(0),
+                "vram_total_gb": round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2),
+                "vram_allocated_gb": round(torch.cuda.memory_allocated(0) / 1e9, 2),
+                "vram_free_gb": round((torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_reserved(0)) / 1e9, 2),
+            }
+        else:
+            info["gpu"] = {"available": False}
+        
+        return jsonify({
+            "status": "success",
+            **info
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     print("\n" + "="*60)
