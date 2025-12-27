@@ -342,20 +342,41 @@ def load_sdxl_model():
     import torch
     
     if pipe_image is None:
-        from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
+        try:
+            # Try new diffusers v1.0.0+ API
+            from diffusers import DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
+        except ImportError:
+            # Fallback to old API for diffusers < 1.0.0
+            from diffusers import StableDiffusionXLPipeline as DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
+        
         from huggingface_hub import hf_hub_download
 
         base = "stabilityai/stable-diffusion-xl-base-1.0"
         repo = "ByteDance/SDXL-Lightning"
         ckpt = "sdxl_lightning_4step_unet.safetensors"
-
+        
         print("Loading SDXL Lightning to RAM...")
+        
+        # Load UNet
         unet = UNet2DConditionModel.from_config(base, subfolder="unet")
         unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cpu", weights_only=False))
-        pipe_image = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16")
-        pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe_image.scheduler.config, timestep_spacing="trailing")
+        
+        # Create pipeline
+        pipe_image = DiffusionPipeline.from_pretrained(
+            base, 
+            unet=unet, 
+            torch_dtype=torch.float16, 
+            variant="fp16"
+        )
+        
+        pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(
+            pipe_image.scheduler.config, 
+            timestep_spacing="trailing"
+        )
+        
+        pipe_image.to("cuda")
         loaded_models['sdxl'] = pipe_image
-        print("SDXL Lightning Ready in RAM.")
+        print("[✓] SDXL Lightning loaded successfully")
     
     offload_models(except_model='sdxl')
     pipe_image.to("cuda")
