@@ -23,8 +23,8 @@ export default function GenerateImages() {
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [resultImage, setResultImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [steps, setSteps] = useState(25);
-    const [guidance, setGuidance] = useState(7.5);
+    const [steps, setSteps] = useState(4); // Optimizado para SDXL Lightning (Hiperrealismo)
+    const [guidance, setGuidance] = useState(2.0); // Guidance bajo para mayor realismo
     const [negativePrompt, setNegativePrompt] = useState('');
 
     const handleMagicPrompt = async () => {
@@ -34,17 +34,17 @@ export default function GenerateImages() {
             const res = await api.magicPrompt(prompt);
             if (res.status === 'success' && res.prompt) {
                 setPrompt(res.prompt);
-                showToast('✨ Prompt mejorado con magia IA', 'success');
+                showToast('✨ Prompt optimizado para Hiperrealismo', 'success');
             } else {
                 throw new Error(res.message);
             }
         } catch (err) {
             console.warn("Backend Magic Prompt failed, using local logic", err);
-            // Local fallback logic
-            const qualityKeywords = "masterpiece, best quality, highly detailed, professional photography, 8k uhd, sharp focus, perfect lighting";
-            const newPrompt = `${qualityKeywords}, ${prompt}, vibrant colors`;
+            // Local fallback logic optimized for PHOTOREALISM
+            const realismKeywords = "Cinematic, Hyper-realistic, 8k uhd, DSLR, soft lighting, high quality, film grain, Fujifilm XT3";
+            const newPrompt = `${realismKeywords}, ${prompt}, detailed texture, masterpiece`;
             setPrompt(newPrompt);
-            showToast('✨ Prompt mejorado (Modo Local)', 'info');
+            showToast('✨ Prompt optimizado (Modo Local Realista)', 'info');
         } finally {
             setIsOptimizing(false);
         }
