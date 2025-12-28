@@ -161,65 +161,72 @@ def load_sdxl_model():
             from diffusers import StableDiffusionXLPipeline as DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
         
         base = "stabilityai/stable-diffusion-xl-base-1.0"
-        ckpt_filename = "sdxl_lightning_4step_unet.safetensors"
         
-        # Rutas personalizadas
-        unet_path = os.path.join(MODELS_DIR, "unet", ckpt_filename)
+        # MODEL SELECTION: Check for Juggernaut XL (Fooocus) first for Super Quality
+        fooocus_ckpt = "/content/Fooocus/models/checkpoints/juggernautXL_v8Rundiffusion.safetensors"
+        lightning_ckpt = os.path.join(MODELS_DIR, "unet", "sdxl_lightning_4step_unet.safetensors")
+        
+        target_ckpt = None
+        is_lightning = True
+        
+        if os.path.exists(fooocus_ckpt):
+            print(f"[*] Found Juggernaut XL (Fooocus) - Activating SUPER QUALITY Mode")
+            target_ckpt = fooocus_ckpt
+            is_lightning = False
+        else:
+            print(f"[*] Using SDXL Lightning (Fast Mode)")
+            target_ckpt = lightning_ckpt
+            is_lightning = True
+
         diffusers_cache = os.path.join(MODELS_DIR, "diffusers")
         
-        print(f"[*] Loading SDXL Lightning to RAM from {MODELS_DIR}...")
+        print(f"[*] Loading SDXL Model from: {target_ckpt}")
         
-        # Load UNet config
-        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet", cache_dir=diffusers_cache)
-        # OPTIMIZATION: Initialize directly in float16 to save ~5GB RAM
-        unet = UNet2DConditionModel.from_config(unet_config, torch_dtype=torch.float16)
+        # Load Pipeline
+        # Note: For Juggernaut (full checkpoint), it is often easier to load as a single file 
+        # but to keep it consistent with our lazy loader:
         
-        # Load lightning weights
-        is_valid = verify_file_integrity(unet_path, min_size_mb=400)
-        
-        state_dict = None
-        if is_valid:
-            print(f"[*] Loading UNet weights from local: {unet_path}")
-            state_dict = load_file(unet_path, device="cpu")
-        else:
-            if os.path.exists(unet_path):
-                print(f"[!] UNet path exists but is corrupt. Deleting and re-downloading...")
-                os.remove(unet_path)
-            
-            from huggingface_hub import hf_hub_download
-            repo = "ByteDance/SDXL-Lightning"
-            
-            unet_dir = os.path.dirname(unet_path)
-            os.makedirs(unet_dir, exist_ok=True)
-            
-            downloaded_path = hf_hub_download(
-                repo, 
-                ckpt_filename, 
-                local_dir=unet_dir, 
-                local_dir_use_symlinks=False
+        if not is_lightning:
+            # Full XL Checkpoint Loading
+            from diffusers import StableDiffusionXLPipeline
+            pipe_image = StableDiffusionXLPipeline.from_single_file(
+                target_ckpt,
+                torch_dtype=torch.float16,
+                variant="fp16",
+                use_safetensors=True,
+                cache_dir=diffusers_cache
             )
-            state_dict = load_file(downloaded_path, device="cpu")
+        else:
+            # Lightning UNet Loading (Optimized for RAM)
+            unet_config = UNet2DConditionModel.load_config(base, subfolder="unet", cache_dir=diffusers_cache)
+            unet = UNet2DConditionModel.from_config(unet_config, torch_dtype=torch.float16)
+            
+            if not verify_file_integrity(target_ckpt, min_size_mb=400):
+                # Re-download lightning if missing/corrupt
+                from huggingface_hub import hf_hub_download
+                target_ckpt = hf_hub_download("ByteDance/SDXL-Lightning", "sdxl_lightning_4step_unet.safetensors", 
+                                            local_dir=os.path.dirname(lightning_ckpt), local_dir_use_symlinks=False)
+            
+            state_dict = load_file(target_ckpt, device="cpu")
+            unet.load_state_dict(state_dict, strict=True)
+            del state_dict
+            
+            pipe_image = DiffusionPipeline.from_pretrained(
+                base, 
+                unet=unet, 
+                torch_dtype=torch.float16, 
+                variant="fp16",
+                use_safetensors=True,
+                cache_dir=diffusers_cache
+            )
+            
+            pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(
+                pipe_image.scheduler.config, 
+                timestep_spacing="trailing"
+            )
 
-        # Load into model and clear RAM immediately
-        unet.load_state_dict(state_dict, strict=True)
-        del state_dict
-        import gc; gc.collect()
-        
-        # Create pipeline
-        print(f"[*] Loading base SDXL pipeline...")
-        pipe_image = DiffusionPipeline.from_pretrained(
-            base, 
-            unet=unet, 
-            torch_dtype=torch.float16, 
-            variant="fp16",
-            use_safetensors=True,
-            cache_dir=diffusers_cache
-        )
-        
-        pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(
-            pipe_image.scheduler.config, 
-            timestep_spacing="trailing"
-        )
+        # Set metadata for external use
+        pipe_image.is_lightning = is_lightning
         
         print(f"[*] Moving pipeline to GPU...")
         pipe_image.to("cuda")
@@ -498,6 +505,17 @@ def generate_image():
         user_negative = data.get('negative_prompt', '')
         steps = data.get('steps', 4)
         guidance = data.get('guidance_scale', 0)
+        
+        # Load model and auto-adjust parameters if it's Juggernaut (non-lightning)
+        pipe = load_sdxl_model()
+        is_lightning = getattr(pipe, 'is_lightning', True)
+        
+        if not is_lightning:
+            # Juggernaut XL needs more steps and guidance for best results
+            if steps <= 8: steps = 30 # Default for high quality
+            if guidance == 0: guidance = 7.0 # Default for realism
+            print(f"[*] Juggernaut Mode: Auto-adjusted Steps to {steps} and Guidance to {guidance}")
+        
         
         if not prompt:
             return jsonify({"status": "error", "message": "Prompt vacío o no proporcionado"}), 400
