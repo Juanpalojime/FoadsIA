@@ -9,19 +9,20 @@ requests
 tqdm
 pydantic
 
-# core AI / ML
+# Core AI / ML (Pinned for stability in Colab T4)
 torch
 torchvision
 torchaudio
-diffusers
-transformers
-accelerate
-safetensors
+diffusers==0.26.3
+transformers==4.38.2
+accelerate==0.27.2
+safetensors==0.4.2
 einops
 numpy
 scipy
 opencv-python-headless
 Pillow
+invisible-watermark>=0.2.0
 
 # Face & Animation (LivePortrait / FaceSwap)
 insightface
@@ -36,20 +37,19 @@ gradio
 # Media Processing (Audio/Video/Restoration)
 edge-tts
 openai-whisper
-
 moviepy==1.0.3
 imageio-ffmpeg
 basicsr
 gfpgan
 realesrgan
 
-# Tools
+# Tools & Security
 huggingface_hub<0.25.0
 python-multipart
 MarkupSafe
 Werkzeug
 jinja2
 itsdangerous
-
 PyJWT
 Flask-Limiter
+pygit2==1.15.1
