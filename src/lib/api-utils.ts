@@ -5,7 +5,7 @@
 
 import { useToast } from '@/components/ui/toast';
 
-export const API_BASE_URL = localStorage.getItem('FOADS_API_URL') || 'http://localhost:5000';
+export const getApiBaseUrl = () => localStorage.getItem('FOADS_API_URL') || 'http://localhost:5000';
 
 interface FetchOptions extends RequestInit {
     showErrorToast?: boolean;
@@ -22,7 +22,14 @@ export async function safeFetch<T>(
     const { showErrorToast = false, ...fetchOptions } = options;
 
     try {
-        const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+        let url = endpoint;
+        if (!endpoint.startsWith('http')) {
+            const baseUrl = getApiBaseUrl();
+            // Remove double slashes if base url has one and endpoint has one
+            const base = baseUrl.replace(/\/$/, "");
+            const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+            url = `${base}${path}`;
+        }
 
         const response = await fetch(url, {
             ...fetchOptions,
@@ -34,7 +41,14 @@ export async function safeFetch<T>(
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            let errorDetails = '';
+            try {
+                const errorData = await response.json();
+                errorDetails = errorData.message || errorData.error || '';
+            } catch (e) {
+                // Ignore json parse error
+            }
+            throw new Error(errorDetails || `HTTP ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
@@ -58,9 +72,13 @@ export async function safeFetch<T>(
  */
 export async function checkBackendHealth(): Promise<boolean> {
     try {
-        const response = await fetch(`${API_BASE_URL}/`, {
+        const response = await fetch(`${getApiBaseUrl()}/`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            mode: 'cors', // Enable CORS validation
+            headers: {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true' // Critical: Bypass ngrok warning page
+            },
         });
         return response.ok;
     } catch {

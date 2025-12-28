@@ -50,13 +50,30 @@ export default function Settings() {
 
     const handleSaveSystem = async () => {
         let cleanUrl = apiUrl.trim();
+        // Ensure no trailing slash
         if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
+
+        // Ensure protocol
+        if (!cleanUrl.startsWith('http')) {
+            if (cleanUrl.includes('localhost') || cleanUrl.includes('127.0.0.1')) {
+                cleanUrl = `http://${cleanUrl}`;
+            } else {
+                cleanUrl = `https://${cleanUrl}`;
+            }
+        }
+
+        setApiUrl(cleanUrl); // Update local state for immediate feedback
         localStorage.setItem('FOADS_API_URL', cleanUrl);
 
         try {
             setStatus('idle');
-            const { data, error } = await safeFetch<{ status: string }>('/');
-            if (error) throw new Error(error);
+            // Try connection
+            const { data } = await safeFetch<{ status: string }>('/', {
+                method: 'GET',
+                // Explicitly allow mixed content for localhost dev
+                mode: 'cors'
+            });
+
             if (data?.status === 'online') {
                 setStatus('success');
             } else {

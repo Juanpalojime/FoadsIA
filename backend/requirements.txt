@@ -50,3 +50,6 @@ MarkupSafe
 Werkzeug
 jinja2
 itsdangerous
+
+PyJWT
+Flask-Limiter

@@ -5,24 +5,42 @@
 
 ---
 
-## 📦 Actualizar el Sistema
+## 🏁 Ejecutar Localmente
+
+### 1. Iniciar el Backend (Servidor Python)
+
+Abre una terminal en la raíz del proyecto y ejecuta:
+
+```powershell
+cd backend
+# Si tienes un entorno virtual: venv\Scripts\activate
+# Si no, usa python directo (asegúrate de usar Python 3.10 o 3.11 para compatibilidad total)
+python app.py
+```
+> El servidor iniciará en `http://localhost:5000`
+
+### 2. Iniciar el Frontend (Web App)
+
+Abre **otra** terminal en la raíz del proyecto y ejecuta:
+
+```powershell
+npm run dev
+```
+> La aplicación web abrirá en tu navegador (usualmente `http://localhost:5173`)
+
+### 🧠 Configuración Inicial Recomendada
+
+1. Ve a **Settings** en la web app (`/settings`).
+2. En "API URL", ingresa `http://localhost:5000` (o la URL de Ngrok si usas Colab).
+3. Haz clic en "Save & Test Connection".
+4. Si sale en verde "Online", ¡estás listo para generar!
+
+---
+
+## 📦 Actualizar el Sistema (Si vienes de GitHub)
 
 ### En Google Colab
-
 ```bash
-# 1. Navegar al directorio
-%cd /content/FoadsIA
-
-# 2. Actualizar código
-!git pull origin master
-
-# 3. Instalar dependencias (si es necesario)
-%cd backend
-!pip install -r requirements.txt
-
-# 4. Reiniciar servidor
-!python app.py
-```
 
 ---
 

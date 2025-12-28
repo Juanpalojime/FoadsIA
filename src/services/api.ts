@@ -1,15 +1,6 @@
+import { safeFetch } from '@/lib/api-utils';
 
-import { safeFetch, API_BASE_URL } from '@/lib/api-utils';
 
-/**
- * Centralized helper to build the full endpoint URL.
- * Falls back to the API_BASE_URL defined in api-utils (which reads from localStorage).
- */
-const buildUrl = (path: string) => {
-    const base = API_BASE_URL.replace(/\/*$/, ''); // remove trailing slash
-    const cleanPath = path.replace(/^\/*/, ''); // remove leading slash
-    return `${base}/${cleanPath}`;
-};
 
 export interface GenerateImageResponse {
     status: 'success' | 'error';
@@ -19,18 +10,18 @@ export interface GenerateImageResponse {
 
 export const api = {
     checkConnection: async (): Promise<boolean> => {
-        const { data, error } = await safeFetch('/');
+        const { data, error } = await safeFetch<{ status: string }>('/');
         return !error && data?.status === 'online';
     },
 
     generateImage: async (prompt: string, aspect_ratio: string = '1:1', steps: number = 4, guidance: number = 0, negative_prompt: string = ''): Promise<GenerateImageResponse> => {
         try {
-            const { data, error } = await safeFetch('/generate-image', {
+            const { data, error } = await safeFetch<GenerateImageResponse>('/generate-image', {
                 method: 'POST',
                 body: JSON.stringify({ prompt, aspect_ratio, steps, guidance, negative_prompt })
             }, undefined);
             if (error) throw new Error(error);
-            return data as GenerateImageResponse;
+            return (data || { status: 'error', message: 'No data returned' }) as GenerateImageResponse;
         } catch (e: any) {
             console.error(e);
             return { status: 'error', message: e.message };
@@ -47,12 +38,12 @@ export const api = {
     },
 
     faceSwap: async (sourceImage: string, targetImage: string): Promise<GenerateImageResponse> => {
-        const { data, error } = await safeFetch('/face-swap', {
+        const { data, error } = await safeFetch<GenerateImageResponse>('/face-swap', {
             method: 'POST',
             body: JSON.stringify({ source_image: sourceImage, target_image: targetImage })
         }, undefined);
         if (error) return { status: 'error', message: error };
-        return data as GenerateImageResponse;
+        return (data || { status: 'error', message: 'No data returned' }) as GenerateImageResponse;
     },
 
     renderVideo: async (script: string, avatarId: string, voiceId: string, generateSubtitles = false) => {

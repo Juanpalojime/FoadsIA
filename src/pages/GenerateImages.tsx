@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles, Image as ImageIcon, Wand2, Download, RefreshCw, AlertCircle, Maximize2, Zap, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { io } from 'socket.io-client';
 import { api } from '../services/api';
 import { db } from '../services/db';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,24 @@ export default function GenerateImages() {
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [resultImage, setResultImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [progress, setProgress] = useState(0);
+    const [socket, setSocket] = useState<any>(null);
+
+    useEffect(() => {
+        const socketUrl = localStorage.getItem('FOADS_API_URL') || '';
+        if (!socketUrl) return;
+
+        const newSocket = io(socketUrl);
+        newSocket.on('generation_progress', (data) => {
+            if (data.progress) setProgress(data.progress);
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+            newSocket.disconnect();
+        };
+    }, []);
     const [steps, setSteps] = useState(4); // Optimizado para SDXL Lightning (Hiperrealismo)
     const [guidance, setGuidance] = useState(2.0); // Guidance bajo para mayor realismo
     const [negativePrompt, setNegativePrompt] = useState('');
@@ -263,15 +282,28 @@ export default function GenerateImages() {
                                                 exit={{ opacity: 0 }}
                                                 className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/90 backdrop-blur-xl"
                                             >
-                                                <div className="relative w-32 h-32 mb-8">
-                                                    <div className="absolute inset-0 border-4 border-primary/10 rounded-full"></div>
-                                                    <div className="absolute inset-0 border-4 border-t-primary border-r-purple-500 rounded-full animate-spin"></div>
-                                                    <div className="absolute inset-4 bg-gradient-to-tr from-primary/20 to-purple-500/20 rounded-full flex items-center justify-center">
-                                                        <RefreshCw size={32} className="text-primary animate-pulse" />
+                                                <div className="relative w-48 h-48 mb-8 flex items-center justify-center">
+                                                    {/* Outer Ring */}
+                                                    <svg className="w-full h-full transform -rotate-90">
+                                                        <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-muted/20" />
+                                                        <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="4" fill="transparent"
+                                                            strokeDasharray={2 * Math.PI * 88}
+                                                            strokeDashoffset={2 * Math.PI * 88 * (1 - (progress / 100))}
+                                                            className="text-primary transition-all duration-300 ease-out"
+                                                        />
+                                                    </svg>
+
+                                                    {/* Center Content */}
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                        <span className="text-4xl font-black text-foreground">{progress}%</span>
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Renderizando</span>
                                                     </div>
                                                 </div>
-                                                <span className="text-lg font-black uppercase tracking-[0.25em] text-foreground">Creando...</span>
-                                                <p className="text-xs text-muted-foreground mt-3 font-bold uppercase tracking-widest animate-pulse">Optimizando Tensores Difusos</p>
+
+                                                <span className="text-lg font-black uppercase tracking-[0.25em] text-foreground animate-pulse">Creando...</span>
+                                                <p className="text-xs text-muted-foreground mt-3 font-bold uppercase tracking-widest">
+                                                    {progress < 30 ? "Inicializando Tensores" : progress < 70 ? "Difusión Estocástica" : "Refinando Detalles"}
+                                                </p>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>

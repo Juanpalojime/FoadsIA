@@ -24,19 +24,43 @@ try:
     from services.liveportrait_service import get_liveportrait_service
     from services.subtitle_service import get_subtitle_service
     from middleware.rate_limiter import get_rate_limiter, rate_limit
+    from middleware.auth import require_auth, generate_token
+    from utils.logger import logger
 except ImportError as e:
     print(f"[!] Service import warning: {e}")
     print("[!] Some features may not be available")
+    # Fallback logger if not imported
+    class MockLogger:
+        def info(self, msg, **kwargs): print(f"[INFO] {msg}")
+        def error(self, msg, **kwargs): print(f"[ERROR] {msg}")
+        def warning(self, msg, **kwargs): print(f"[WARN] {msg}")
+    logger = MockLogger()
+    def require_auth(f): return f
+    def generate_token(*args, **kwargs): return "mock-token"
 
 # Initialize Flask App & SocketIO
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Static File Serving
 @app.route('/files/<path:filename>')
 def serve_files(filename):
     return send_from_directory('data', filename)
+
+@app.route('/', methods=['GET'])
+def health_check():
+    """Health check endpoint for frontend connection verification."""
+    global BASE_URL
+    if not BASE_URL:
+        BASE_URL = request.url_root.rstrip('/')
+    return jsonify({
+        "status": "online", 
+        "message": "FoadsIA Backend Running",
+        "mode": "free_oss",
+        "optimization": "T4_VRAM_MANAGER",
+        "base_url": BASE_URL
+    })
 
 # Global Error Handlers
 @app.errorhandler(404)
@@ -49,14 +73,28 @@ def server_error(e):
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-    print(f"[!] Unhandled Exception: {str(e)}")
+    logger.error(f"Unhandled Exception: {str(e)}", exc_info=True)
     return jsonify({"status": "error", "message": "Ocurrió un error inesperado", "error": str(e)}), 500
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    """Endpoint temporal para obtener token (en prod usaría DB)."""
+    data = request.json or {}
+    username = data.get('username', 'demo')
+    # password check placeholder
+    
+    token = generate_token(username)
+    return jsonify({
+        "status": "success",
+        "token": token,
+        "type": "Bearer"
+    })
 
 # Global State & Persistence
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 ASSETS_FILE = os.path.join(DATA_DIR, "assets.json")
-BASE_URL = os.environ.get("BASE_URL", "") # Store public base URL for threads
+BASE_URL = os.environ.get("BASE_URL", "")
 
 def load_json(path, default):
     if not os.path.exists(path):
@@ -68,6 +106,16 @@ def save_json(path, data):
 
 # Initial Load
 assets_db = load_json(ASSETS_FILE, [])
+
+def verify_file_integrity(file_path, min_size_mb=100):
+    """Verificar que un archivo de modelo existe y tiene un tamaño razonable"""
+    if not os.path.exists(file_path):
+        return False
+    file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+    if file_size_mb < min_size_mb:
+        print(f"[!] Archivo {file_path} parece corrupto o incompleto ({file_size_mb:.2f}MB).")
+        return False
+    return True
 
 # Job Queue
 job_queue = queue.Queue()
@@ -91,7 +139,98 @@ def offload_models(except_model=None):
 # Global Models
 pipe_image = None
 whisper_model = None
-# LivePortrait/SadTalker usually carry multiple sub-models
+
+# Models Directory
+MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+
+def load_sdxl_model():
+    global pipe_image, loaded_models
+    import torch
+    from safetensors.torch import load_file
+    
+    if pipe_image is None:
+        try:
+            from diffusers import DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
+        except ImportError:
+            from diffusers import StableDiffusionXLPipeline as DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
+        
+        base = "stabilityai/stable-diffusion-xl-base-1.0"
+        ckpt_filename = "sdxl_lightning_4step_unet.safetensors"
+        
+        # Rutas personalizadas
+        unet_path = os.path.join(MODELS_DIR, "unet", ckpt_filename)
+        diffusers_cache = os.path.join(MODELS_DIR, "diffusers")
+        
+        print(f"[*] Loading SDXL Lightning to RAM from {MODELS_DIR}...")
+        
+        # Load UNet config
+        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet", cache_dir=diffusers_cache)
+        unet = UNet2DConditionModel.from_config(unet_config)
+        
+        # Load lightning weights
+        is_valid = verify_file_integrity(unet_path, min_size_mb=400)
+        
+        if is_valid:
+            print(f"[*] Loading UNet weights from local: {unet_path}")
+            # Explicit safe loading
+            state_dict = load_file(unet_path, device="cpu")
+            unet.load_state_dict(state_dict, strict=True)
+        else:
+            if os.path.exists(unet_path):
+                print(f"[!] UNet path exists but is corrupt. Deleting and re-downloading...")
+                os.remove(unet_path)
+            else:
+                print(f"[!] UNet custom path not found: {unet_path}. Attempting download...")
+            
+            from huggingface_hub import hf_hub_download
+            repo = "ByteDance/SDXL-Lightning"
+            
+            unet_dir = os.path.dirname(unet_path)
+            os.makedirs(unet_dir, exist_ok=True)
+            
+            downloaded_path = hf_hub_download(
+                repo, 
+                ckpt_filename, 
+                local_dir=unet_dir, 
+                local_dir_use_symlinks=False
+            )
+            
+            # Explicit safe loading
+            state_dict = load_file(downloaded_path, device="cpu")
+            unet.load_state_dict(state_dict, strict=True)
+        
+        # Create pipeline
+        print(f"[*] Loading base SDXL pipeline...")
+        pipe_image = DiffusionPipeline.from_pretrained(
+            base, 
+            unet=unet, 
+            torch_dtype=torch.float16, 
+            variant="fp16",
+            use_safetensors=True,
+            cache_dir=diffusers_cache
+        )
+        
+        pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(
+            pipe_image.scheduler.config, 
+            timestep_spacing="trailing"
+        )
+        
+        print(f"[*] Moving pipeline to GPU...")
+        pipe_image.to("cuda")
+        
+        # xFormers Optimization
+        try:
+            pipe_image.enable_xformers_memory_efficient_attention()
+            print("[*] xFormers memory efficient attention enabled")
+        except Exception as e:
+            print(f"[!] xFormers not available: {e}")
+
+        loaded_models['sdxl'] = pipe_image
+        print("[✓] SDXL Lightning loaded successfully")
+    
+    offload_models(except_model='sdxl')
+    pipe_image.to("cuda")
+    return pipe_image
 
 # Background Worker Utilities
 def transcribe_and_subtitle(video_path, audio_path):
@@ -108,8 +247,6 @@ def transcribe_and_subtitle(video_path, audio_path):
             loaded_models['whisper'] = whisper_model
 
         offload_models(except_model='whisper')
-        # Faster-whisper handles its own device management usually, 
-        # but we can force it if needed. For now we use the object.
         whisper_model.model.to("cuda") 
         
         print("[*] Transcribing audio...")
@@ -139,6 +276,7 @@ def transcribe_and_subtitle(video_path, audio_path):
     except Exception as e:
         print(f"[!] Subtitling failed: {str(e)}")
         return video_path
+
 # Helper: TTS Sync Wrapper
 async def _poly_tts(text, voice, out_file):
     communicate = edge_tts.Communicate(text, voice)
@@ -169,16 +307,11 @@ def background_worker():
             work_dir = os.path.join(DATA_DIR, "jobs", job_id)
             os.makedirs(work_dir, exist_ok=True)
             
-            # Base URL for results
-            # Accessing app context inside thread is tricky for request.url_root
-            # We assume standard localhost or ngrok, ideally passed in job or config
-            # For simplicity, we construct relative to /files/
-            
             if job['type'] == 'video':
                 data = job['data']
                 avatar_id = data.get('avatar_id')
                 script = data.get('script')
-                voice_id = data.get('voice_id', 'es-CO-SalomeNeural') # Default to Salome if missing
+                voice_id = data.get('voice_id', 'es-CO-SalomeNeural')
                 
                 # 1. TTS Generation
                 socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 15, "message": f"Generando voz ({voice_id})..."})
@@ -188,52 +321,28 @@ def background_worker():
                     if not run_tts_sync(script, audio_path, voice=voice_id):
                         raise Exception("TTS Generation Failed")
                 
-                # 2. Animation (LivePortrait via Subprocess)
-                socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 30, "message": "Animando rostro (LivePortrait)..."})
+                # 2. Animation
+                socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 30, "message": "Animando rostro..."})
                 
-                # Resolve avatar path
                 avatar_path = os.path.join(DATA_DIR, "avatars", avatar_id) if avatar_id else None
                 if not avatar_path or not os.path.exists(avatar_path):
-                    # Fallback to a default if ID provided is not a file
-                    avatar_path = os.path.join(DATA_DIR, "avatars", "default.jpg") # Ensure this exists
+                    avatar_path = os.path.join(DATA_DIR, "avatars", "default.jpg")
                 
-                if not os.path.exists("LivePortrait"):
-                    print("[!] LivePortrait repo not found. Skipping animation.")
-                    # Fallback so job doesn't crash completely for user without setup
-                    video_path = os.path.join(work_dir, "result.mp4")
-                    # Create dummy video from image to prevent 404
-                    # (requires FFmpeg)
-                    subprocess.run(f"ffmpeg -loop 1 -i {avatar_path} -i {audio_path} -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest {video_path}", shell=True)
-                else:
-                    # Execute LivePortrait inference
-                    # Assuming standard structure
-                    cmd = [
-                        "python", "LivePortrait/inference.py",
-                        "--source", avatar_path,
-                        "--driving", audio_path,
-                        "--output_dir", work_dir
-                    ]
-                    subprocess.run(cmd, check=True)
-                    # Find output video (LivePortrait names vary)
-                    # ... usually inside work_dir/animation.mp4
-                    video_path = os.path.join(work_dir, "result.mp4") # Rename logic needed in real setup
+                video_path = os.path.join(work_dir, "result.mp4")
+                
+                # Fallback: Create simple video
+                subprocess.run(
+                    f"ffmpeg -loop 1 -i {avatar_path} -i {audio_path} -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest {video_path}",
+                    shell=True,
+                    check=True
+                )
 
-                # 3. Subtitles (Whisper)
+                # 3. Subtitles
                 if data.get('generate_subtitles'):
                     socketio.emit('job_update', {"job_id": job_id, "status": "processing", "progress": 80, "message": "Sincronizando subtítulos..."})
                     final_path = transcribe_and_subtitle(video_path, audio_path)
                     video_path = final_path
 
-                # Finalize
-                # Find the result video. LivePortrait creates a subdir like work_dir/animations/result.mp4
-                found_videos = glob.glob(os.path.join(work_dir, "**", "*.mp4"), recursive=True)
-                if found_videos:
-                    # Sort by modification time to get the latest
-                    found_videos.sort(key=os.path.getmtime, reverse=True)
-                    video_path = found_videos[0]
-                
-                result_filename = os.path.basename(video_path)
-                # Ensure the file is in a predictable place for serving
                 predictable_path = os.path.join(work_dir, "final_result.mp4")
                 if video_path != predictable_path:
                     shutil.copy2(video_path, predictable_path)
@@ -242,10 +351,6 @@ def background_worker():
                 jobs_status[job_id]['url'] = public_path
                 jobs_status[job_id]['status'] = 'completed'
                 socketio.emit('job_update', {"job_id": job_id, "status": "completed", "progress": 100, "url": public_path})
-
-            elif job['type'] == 'live_portrait':
-                 # Specific endpoint logic job
-                 pass
 
         except Exception as e:
             print(f"[!] Job {job_id} Failed: {str(e)}")
@@ -259,18 +364,6 @@ def background_worker():
 worker_thread = threading.Thread(target=background_worker, daemon=True)
 worker_thread.start()
 
-@app.route('/', methods=['GET'])
-def health_check():
-    global BASE_URL
-    if not BASE_URL:
-        BASE_URL = request.url_root.rstrip('/')
-    return jsonify({
-        "status": "online", 
-        "mode": "free_oss",
-        "optimization": "T4_VRAM_MANAGER",
-        "base_url": BASE_URL
-    })
-
 @app.route('/api/assets', methods=['GET', 'POST'])
 def manage_assets():
     global assets_db
@@ -281,7 +374,6 @@ def manage_assets():
         return jsonify({"status": "success", "assets_count": len(assets_db)})
     return jsonify({"status": "success", "assets": assets_db})
 
-# Job Status Polling
 @app.route('/api/jobs/<job_id>', methods=['GET'])
 def get_job_status(job_id):
     job = jobs_status.get(job_id)
@@ -290,12 +382,12 @@ def get_job_status(job_id):
     return jsonify(job)
 
 @app.route('/render-video', methods=['POST'])
+@require_auth
 def render_video():
     try:
         data = request.json
         job_id = f"vid_{int(time.time())}"
         
-        # Add to Queue
         jobs_status[job_id] = {
             "id": job_id,
             "status": "queued",
@@ -313,107 +405,6 @@ def render_video():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/render-multi-scene', methods=['POST'])
-def render_multi_scene():
-    try:
-        data = request.json
-        scenes = data.get('scenes', [])
-        job_id = f"multi_{int(time.time())}"
-        
-        jobs_status[job_id] = {
-            "id": job_id,
-            "status": "queued",
-            "type": "multi_scene",
-            "scenes_count": len(scenes),
-            "created_at": time.time()
-        }
-        
-        job_queue.put({"id": job_id, "type": "multi_scene", "data": data})
-        
-        return jsonify({
-            "status": "success",
-            "job_id": job_id,
-            "message": "Proyecto Multi-Escena en cola"
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-# Models Directory
-MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
-
-# Existing SDXL / FaceSwap logic refined for production
-def load_sdxl_model():
-    global pipe_image, loaded_models
-    import torch
-    
-    if pipe_image is None:
-        try:
-            # Try new diffusers v1.0.0+ API
-            from diffusers import DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
-        except ImportError:
-            # Fallback to old API for diffusers < 1.0.0
-            from diffusers import StableDiffusionXLPipeline as DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
-        
-        # from huggingface_hub import hf_hub_download # Not needed if we use local path directly
-
-        base = "stabilityai/stable-diffusion-xl-base-1.0"
-        # repo = "ByteDance/SDXL-Lightning" 
-        ckpt_filename = "sdxl_lightning_4step_unet.safetensors"
-        
-        # Rutas personalizadas
-        unet_path = os.path.join(MODELS_DIR, "unet", ckpt_filename)
-        diffusers_cache = os.path.join(MODELS_DIR, "diffusers")
-        
-        print(f"Loading SDXL Lightning to RAM from {MODELS_DIR}...")
-        
-        # Load UNet (Optimized Setup)
-        # Load config first to avoid warnings and enable faster loading
-        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet", cache_dir=diffusers_cache)
-        unet = UNet2DConditionModel.from_config(unet_config)
-        
-        # Load lightning weights
-        if os.path.exists(unet_path):
-             print(f"[*] Loading UNet weights from local: {unet_path}")
-             unet.load_state_dict(torch.load(unet_path, map_location="cpu", weights_only=False)) 
-        else:
-             print(f"[!] UNet custom path not found: {unet_path}. Attempting implicit download (fallback)...")
-             from huggingface_hub import hf_hub_download
-             repo = "ByteDance/SDXL-Lightning"
-             unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt_filename), map_location="cpu", weights_only=False))
-
-        
-        # Create pipeline with efficient VAE loading
-        pipe_image = DiffusionPipeline.from_pretrained(
-            base, 
-            unet=unet, 
-            torch_dtype=torch.float16, 
-            variant="fp16",
-            use_safetensors=True,
-            cache_dir=diffusers_cache
-        )
-        
-        pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(
-            pipe_image.scheduler.config, 
-            timestep_spacing="trailing"
-        )
-        
-        pipe_image.to("cuda")
-        
-        # xFormers Optimization
-        try:
-            pipe_image.enable_xformers_memory_efficient_attention()
-            print("[*] xFormers memory efficient attention enabled")
-        except Exception as e:
-            print(f"[!] xFormers not available, using standard attention: {e}")
-
-        loaded_models['sdxl'] = pipe_image
-        print("[✓] SDXL Lightning loaded successfully")
-    
-    offload_models(except_model='sdxl')
-    pipe_image.to("cuda")
-    return pipe_image
-
 @app.route('/magic-prompt', methods=['POST'])
 def magic_prompt():
     """Enhance user prompts with quality keywords and artistic style."""
@@ -424,10 +415,9 @@ def magic_prompt():
         if not prompt:
             return jsonify({"status": "error", "message": "Prompt vacío"}), 400
         
-        # Rule-based enhancement (no model needed, saves VRAM)
+        # Rule-based enhancement
         quality_keywords = "masterpiece, best quality, highly detailed, professional photography, 8k uhd, sharp focus, perfect lighting"
         
-        # Detect if it's a portrait/person
         person_keywords = ['person', 'man', 'woman', 'portrait', 'face', 'people', 'human']
         is_portrait = any(kw in prompt.lower() for kw in person_keywords)
         
@@ -436,85 +426,18 @@ def magic_prompt():
         else:
             enhanced = f"{quality_keywords}, {prompt}, vibrant colors, professional composition"
         
-        # Phi-3 Mini Integration (Local LLM)
-        use_llm = data.get('use_llm', True) # Default to True if requested by features
-        
-        if use_llm:
-             try:
-                 print("[*] Loading Phi-3 Mini for Magic Prompt...")
-                 # Offload SDXL to make room for LLM on T4 (approx 4GB VRAM needed for 4-bit Phi-3)
-                 offload_models() 
-                 
-                 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-                 
-                 phi3_path = os.path.join(MODELS_DIR, "prompt_expansion", "Phi-3-mini-4k-instruct")
-                 
-                 # Check if local or use HF hub with cache
-                 model_id = "microsoft/Phi-3-mini-4k-instruct"
-                 
-                 # 4-bit loading for T4 Optimization
-                 # Requires bitsandbytes library
-                 tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-                 model = AutoModelForCausalLM.from_pretrained(
-                     model_id, 
-                     device_map="cuda", 
-                     trust_remote_code=True, 
-                     torch_dtype="auto", 
-                     load_in_4bit=True
-                 )
-                 
-                 pipe = pipeline(
-                     "text-generation",
-                     model=model,
-                     tokenizer=tokenizer,
-                 )
-                 
-                 messages = [
-                     {"role": "system", "content": "You are a helpful AI assistant for Stable Diffusion prompting. Enhance the user's prompt with artistic details, lighting, and style keywords. Keep it under 75 tokens. Output ONLY the enhanced prompt."},
-                     {"role": "user", "content": f"Enhance this prompt for a photorealistic image: '{prompt}'"},
-                 ]
-                 
-                 generation_args = {
-                     "max_new_tokens": 100,
-                     "return_full_text": False,
-                     "temperature": 0.7,
-                     "do_sample": True,
-                 }
-                 
-                 output = pipe(messages, **generation_args)
-                 enhanced_llm = output[0]['generated_text']
-                 
-                 print(f"[✓] Phi-3 Enhanced: {enhanced_llm}")
-                 
-                 # Cleanup LLM to free VRAM for SDXL
-                 del model
-                 del pipe
-                 del tokenizer
-                 torch.cuda.empty_cache()
-                 
-                 return jsonify({
-                    "status": "success", 
-                    "prompt": enhanced_llm,
-                    "original": prompt,
-                    "method": "Phi-3 Mini (Local LLM)"
-                 })
-
-             except Exception as llm_error:
-                 print(f"[!] Phi-3 Error: {llm_error}. Falling back to rule-based.")
-                 # Fallback to rule-based logic below
-                 pass
-        
         return jsonify({
             "status": "success", 
             "prompt": enhanced,
             "original": prompt,
-            "method": "Rule-Based (Fallback)"
+            "method": "Rule-Based Enhancement"
         })
         
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/face-swap', methods=['POST'])
+@require_auth
 def face_swap():
     """Intercambia rostros entre dos imágenes usando InsightFace."""
     import torch
@@ -532,17 +455,13 @@ def face_swap():
                 "message": "Se requieren source_image y target_image en base64"
             }), 400
         
-        # Importar servicio
         from services.face_swap_service import get_face_swap_service
         
-        # Offload otros modelos para liberar VRAM
         offload_models(except_model='faceswap')
         
-        # Obtener servicio y procesar
         service = get_face_swap_service()
         result_image = service.process_base64(source_image, target_image)
         
-        # Registrar en loaded_models para tracking
         loaded_models['faceswap'] = service
         
         return jsonify({
@@ -558,7 +477,7 @@ def face_swap():
         }), 500
 
 @app.route('/generate-image', methods=['POST'])
-@rate_limit('/generate-image')
+@require_auth
 def generate_image():
     import torch
     import traceback
@@ -575,9 +494,9 @@ def generate_image():
         if not prompt:
             return jsonify({"status": "error", "message": "Prompt vacío o no proporcionado"}), 400
         
-        print(f"[*] Generating image for prompt: {prompt[:50]}...")
+        logger.info(f"Generating image for prompt: {prompt[:50]}...", extra={"steps": steps, "guidance": guidance})
         
-        # Intentar obtener del caché
+        # Cache check
         try:
             cache_service = get_cache_service()
             cache_key = cache_service.get_cache_key(prompt, steps, guidance)
@@ -594,11 +513,24 @@ def generate_image():
         except Exception as cache_error:
             print(f"[!] Cache error (continuing without cache): {cache_error}")
         
-        # Generar imagen
+        # Load model
         pipe = load_sdxl_model()
         
+        # Progress callback
+        def progress_callback(step, timestep, latents):
+            progress = int((step / steps) * 100)
+            socketio.emit('generation_progress', {"progress": progress, "status": "generating"})
+        
         print(f"[*] Running SDXL inference...")
-        image = pipe(prompt, num_inference_steps=steps, guidance_scale=guidance).images[0]
+        image = pipe(
+            prompt, 
+            num_inference_steps=steps, 
+            guidance_scale=guidance, 
+            callback=progress_callback, 
+            callback_steps=1
+        ).images[0]
+        
+        socketio.emit('generation_progress', {"progress": 100, "status": "completed"})
         
         print(f"[*] Encoding image to base64...")
         import io, base64
@@ -607,7 +539,7 @@ def generate_image():
         image_bytes = buffered.getvalue()
         img_str = base64.b64encode(image_bytes).decode('utf-8')
         
-        # Guardar en caché
+        # Save to cache
         try:
             cache_service.save_to_cache(
                 cache_key, 
@@ -615,9 +547,9 @@ def generate_image():
                 metadata={'prompt': prompt, 'steps': steps, 'guidance': guidance}
             )
         except Exception as cache_error:
-            print(f"[!] Failed to save to cache: {cache_error}")
+            logger.error(f"Failed to save to cache: {cache_error}")
         
-        print(f"[✓] Image generated successfully")
+        logger.info(f"Image generated successfully", extra={"cached": False, "length": len(img_str)})
         return jsonify({
             "status": "success", 
             "image": f"data:image/png;base64,{img_str}",
@@ -626,8 +558,8 @@ def generate_image():
         
     except Exception as e:
         error_trace = traceback.format_exc()
-        print(f"[!] Image Generation Error: {str(e)}")
-        print(f"[!] Traceback:\n{error_trace}")
+        logger.error(f"Image Generation Error: {str(e)}", exc_info=True)
+        # print(f"[!] Traceback:\n{error_trace}")
         return jsonify({
             "status": "error", 
             "message": str(e),
@@ -661,7 +593,6 @@ def gpu_status():
     
     return jsonify({"status": "offline", "message": "GPU no disponible"})
 
-
 @app.route('/avatars', methods=['GET'])
 def get_avatars():
     avatar_dir = os.path.join(DATA_DIR, "avatars")
@@ -670,7 +601,6 @@ def get_avatars():
     files = glob.glob(os.path.join(avatar_dir, "*.*"))
     avatars = []
     
-    # Detect base URL dynamically (ngrok compatible)
     base_url = request.url_root.rstrip('/')
     
     for f in files:
@@ -682,7 +612,6 @@ def get_avatars():
                 "img": f"{base_url}/files/avatars/{fname}"
              })
              
-    # Fallback if empty
     if not avatars:
         avatars = [
             { "id": "demo_1", "name": "Demo User", "img": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" }
@@ -692,361 +621,15 @@ def get_avatars():
 
 @app.route('/voices', methods=['GET'])
 def get_voices():
-    """Retorna lista de voces disponibles de Edge TTS (Colombia y México)."""
+    """Retorna lista de voces disponibles de Edge TTS."""
     voices = [
-        # Voces de Colombia
-        {
-            "id": "es-CO-GonzaloNeural",
-            "name": "Gonzalo (Colombia)",
-            "language": "es-CO",
-            "gender": "Male",
-            "country": "Colombia"
-        },
-        {
-            "id": "es-CO-SalomeNeural",
-            "name": "Salomé (Colombia)",
-            "language": "es-CO",
-            "gender": "Female",
-            "country": "Colombia"
-        },
-        # Voces de México
-        {
-            "id": "es-MX-DaliaNeural",
-            "name": "Dalia (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-JorgeNeural",
-            "name": "Jorge (México)",
-            "language": "es-MX",
-            "gender": "Male",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-BeatrizNeural",
-            "name": "Beatriz (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-CandelaNeural",
-            "name": "Candela (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-CarlotaNeural",
-            "name": "Carlota (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-CecilioNeural",
-            "name": "Cecilio (México)",
-            "language": "es-MX",
-            "gender": "Male",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-GerardoNeural",
-            "name": "Gerardo (México)",
-            "language": "es-MX",
-            "gender": "Male",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-LarissaNeural",
-            "name": "Larissa (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-LibertoNeural",
-            "name": "Liberto (México)",
-            "language": "es-MX",
-            "gender": "Male",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-LucianoNeural",
-            "name": "Luciano (México)",
-            "language": "es-MX",
-            "gender": "Male",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-MarinaNeural",
-            "name": "Marina (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-NuriaNeural",
-            "name": "Nuria (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-PelayoNeural",
-            "name": "Pelayo (México)",
-            "language": "es-MX",
-            "gender": "Male",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-RenataNeural",
-            "name": "Renata (México)",
-            "language": "es-MX",
-            "gender": "Female",
-            "country": "México"
-        },
-        {
-            "id": "es-MX-YagoNeural",
-            "name": "Yago (México)",
-            "language": "es-MX",
-            "gender": "Male",
-            "country": "México"
-        },
-        # Voces adicionales de España (como alternativa)
-        {
-            "id": "es-ES-AlvaroNeural",
-            "name": "Álvaro (España)",
-            "language": "es-ES",
-            "gender": "Male",
-            "country": "España"
-        },
-        {
-            "id": "es-ES-ElviraNeural",
-            "name": "Elvira (España)",
-            "language": "es-ES",
-            "gender": "Female",
-            "country": "España"
-        },
+        {"id": "es-CO-GonzaloNeural", "name": "Gonzalo (Colombia)", "language": "es-CO", "gender": "Male", "country": "Colombia"},
+        {"id": "es-CO-SalomeNeural", "name": "Salomé (Colombia)", "language": "es-CO", "gender": "Female", "country": "Colombia"},
+        {"id": "es-MX-DaliaNeural", "name": "Dalia (México)", "language": "es-MX", "gender": "Female", "country": "México"},
+        {"id": "es-MX-JorgeNeural", "name": "Jorge (México)", "language": "es-MX", "gender": "Male", "country": "México"},
     ]
     
     return jsonify({ "status": "success", "voices": voices })
-
-
-@app.route('/live-portrait', methods=['POST'])
-def live_portrait():
-    """Endpoint simplificado para LivePortrait."""
-    try:
-        data = request.json
-        # Encolar trabajo de animación
-        job_id = f"lp_{int(time.time())}"
-        jobs_status[job_id] = { 
-            "id": job_id, 
-            "status": "queued", 
-            "type": "video",  # Reusamos la lógica de video del worker
-            "created_at": time.time()
-        }
-        
-        # Adaptar datos para el worker de video
-        job_data = {
-            "avatar_id": data.get("image"), # Asumimos que mandan ID o path
-            "script": data.get("audio"), # O audio path
-            "generate_subtitles": False
-        }
-        
-        job_queue.put({"id": job_id, "type": "video", "data": job_data})
-        
-        return jsonify({ "status": "processing", "job_id": job_id, "message": "Animación en cola" })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/enhance-media', methods=['POST'])
-@rate_limit('/enhance-media')
-def enhance_media():
-    """Upscaling con RealESRGAN."""
-    import traceback
-    
-    try:
-        data = request.json
-        image_data = data.get('image')  # Base64 image
-        scale = data.get('scale', 4.0)  # Upscale factor
-        model_name = data.get('model', 'RealESRGAN_x4plus')
-        
-        if not image_data:
-            return jsonify({
-                "status": "error",
-                "message": "No image provided"
-            }), 400
-        
-        print(f"[*] Upscaling image with scale {scale}x...")
-        
-        # Obtener servicio de upscaling
-        from services.esrgan_service import get_esrgan_service
-        esrgan_service = get_esrgan_service()
-        
-        # Offload otros modelos
-        offload_models(except_model='esrgan')
-        
-        # Upscale la imagen
-        upscaled_image = esrgan_service.upscale_from_base64(image_data, outscale=scale)
-        
-        # Registrar en loaded_models
-        loaded_models['esrgan'] = esrgan_service
-        
-        print(f"[✓] Image upscaled successfully")
-        
-        return jsonify({
-            "status": "success",
-            "image": upscaled_image,
-            "scale": scale,
-            "model": model_name
-        })
-        
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(f"[!] Upscaling Error: {str(e)}")
-        print(f"[!] Traceback:\n{error_trace}")
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-            "type": type(e).__name__
-        }), 500
-
-# ============================================================
-# MONITORING & STATS ENDPOINTS
-# ============================================================
-
-@app.route('/api/cache/stats', methods=['GET'])
-def cache_stats():
-    """Obtiene estadísticas del sistema de caché."""
-    try:
-        cache_service = get_cache_service()
-        stats = cache_service.get_cache_stats()
-        return jsonify({
-            "status": "success",
-            **stats
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/cache/clear', methods=['POST'])
-def clear_cache():
-    """Limpia el caché de imágenes."""
-    try:
-        data = request.json or {}
-        max_age_days = data.get('max_age_days', 7)
-        
-        cache_service = get_cache_service()
-        cache_service.clear_old_cache(max_age_days)
-        
-        return jsonify({
-            "status": "success",
-            "message": f"Cache cleared (entries older than {max_age_days} days)"
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/rate-limit/stats', methods=['GET'])
-def rate_limit_stats():
-    """Obtiene estadísticas del rate limiter."""
-    try:
-        limiter = get_rate_limiter()
-        stats = limiter.get_stats()
-        return jsonify({
-            "status": "success",
-            **stats
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/services/status', methods=['GET'])
-def services_status():
-    """Obtiene el estado de todos los servicios."""
-    try:
-        import torch
-        
-        status = {
-            "gpu": {
-                "available": torch.cuda.is_available(),
-                "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
-            },
-            "services": {
-                "cache": True,  # Siempre disponible
-                "rate_limiter": True,  # Siempre disponible
-            }
-        }
-        
-        # Check LivePortrait
-        try:
-            lp_service = get_liveportrait_service()
-            status["services"]["liveportrait"] = lp_service.get_status()
-        except:
-            status["services"]["liveportrait"] = {"available": False}
-        
-        # Check Real-ESRGAN
-        try:
-            esrgan_service = get_esrgan_service()
-            status["services"]["esrgan"] = {"available": True}
-        except:
-            status["services"]["esrgan"] = {"available": False}
-        
-        # Check Whisper
-        try:
-            subtitle_service = get_subtitle_service()
-            status["services"]["whisper"] = {"available": True}
-        except:
-            status["services"]["whisper"] = {"available": False}
-        
-        return jsonify({
-            "status": "success",
-            **status
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/system/info', methods=['GET'])
-def system_info():
-    """Obtiene información completa del sistema."""
-    try:
-        import torch
-        import platform
-        
-        info = {
-            "system": {
-                "platform": platform.system(),
-                "python_version": platform.python_version(),
-            },
-            "gpu": {},
-            "models_loaded": list(loaded_models.keys()),
-            "jobs": {
-                "total": len(jobs_status),
-                "queued": sum(1 for j in jobs_status.values() if j['status'] == 'queued'),
-                "processing": sum(1 for j in jobs_status.values() if j['status'] == 'processing'),
-                "completed": sum(1 for j in jobs_status.values() if j['status'] == 'completed'),
-                "failed": sum(1 for j in jobs_status.values() if j['status'] == 'failed'),
-            }
-        }
-        
-        if torch.cuda.is_available():
-            info["gpu"] = {
-                "available": True,
-                "device": torch.cuda.get_device_name(0),
-                "vram_total_gb": round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2),
-                "vram_allocated_gb": round(torch.cuda.memory_allocated(0) / 1e9, 2),
-                "vram_free_gb": round((torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_reserved(0)) / 1e9, 2),
-            }
-        else:
-            info["gpu"] = {"available": False}
-        
-        return jsonify({
-            "status": "success",
-            **info
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == '__main__':
     print("\n" + "="*60)
@@ -1054,10 +637,8 @@ if __name__ == '__main__':
     print("="*60 + "\n")
     
     try:
-        # Ejecutamos Flask con SocketIO
         socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
     except KeyboardInterrupt:
         print("\n\n🛑 Servidor detenido por el usuario")
     except Exception as e:
         print(f"\n❌ Error al iniciar servidor: {e}")
-

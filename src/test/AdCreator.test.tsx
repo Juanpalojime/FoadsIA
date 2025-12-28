@@ -2,6 +2,8 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import AdCreator from '../pages/AdCreator';
 import * as gemini from '../services/gemini';
+import { ToastProvider } from '@/components/ui/toast';
+
 
 // Mock the whole module
 vi.mock('../services/gemini', () => ({
@@ -29,7 +31,11 @@ describe('AdCreator Page', () => {
     });
 
     it('renders correctly', () => {
-        render(<AdCreator />);
+        render(
+            <ToastProvider>
+                <AdCreator />
+            </ToastProvider>
+        );
         expect(screen.getByText(/Ad Creator Studio/i)).toBeInTheDocument();
         expect(screen.getByPlaceholderText(/¿Qué quieres anunciar hoy/i)).toBeInTheDocument();
     });
@@ -51,7 +57,11 @@ describe('AdCreator Page', () => {
             new Promise(resolve => setTimeout(() => resolve(mockVariations), 100))
         );
 
-        render(<AdCreator />);
+        render(
+            <ToastProvider>
+                <AdCreator />
+            </ToastProvider>
+        );
         const textarea = screen.getByPlaceholderText(/¿Qué quieres anunciar hoy/i);
 
         fireEvent.change(textarea, { target: { value: 'Una bebida energizante nueva' } });
@@ -72,7 +82,11 @@ describe('AdCreator Page', () => {
     });
 
     it('shows empty state when no variations', () => {
-        render(<AdCreator />);
+        render(
+            <ToastProvider>
+                <AdCreator />
+            </ToastProvider>
+        );
         expect(screen.getByText(/Escribe algo y presiona generar/i)).toBeInTheDocument();
     });
 });
