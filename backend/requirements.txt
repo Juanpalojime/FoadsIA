@@ -44,7 +44,7 @@ gfpgan
 realesrgan
 
 # Tools
-huggingface_hub
+huggingface_hub<0.25.0
 python-multipart
 MarkupSafe
 Werkzeug

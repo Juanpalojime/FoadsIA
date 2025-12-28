@@ -1,5 +1,10 @@
 import os
 import sys
+import huggingface_hub
+# Monkeypatch for legacy libraries that still use cached_download
+if not hasattr(huggingface_hub, 'cached_download'):
+    from huggingface_hub import hf_hub_download
+    huggingface_hub.cached_download = hf_hub_download
 import time
 import json
 import threading
