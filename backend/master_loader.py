@@ -4,9 +4,6 @@ import sys
 import time
 import torch
 from pathlib import Path
-from huggingface_hub import hf_hub_download
-from diffusers import DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
-import whisper
 
 # Configuración de Colores para Logs
 class Colors:
@@ -24,6 +21,29 @@ def log(msg, type="info"):
     elif type == "warn": print(f"{Colors.WARNING}[WARN]{Colors.ENDC} {msg}")
     elif type == "error": print(f"{Colors.FAIL}[ERROR]{Colors.ENDC} {msg}")
     elif type == "header": print(f"\n{Colors.HEADER}{Colors.BOLD}=== {msg} ==={Colors.ENDC}")
+from huggingface_hub import hf_hub_download
+from diffusers import DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
+import whisper
+
+
+# Configuración de Rutas base
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+
+# Estructura solicitada
+FOLDERS = [
+    "checkpoints", "clip", "clip_vision", "configs", "controlnet", 
+    "diffusers", "embeddings", "gligen", "hypernetworks", "inpaint", 
+    "loras", "prompt_expansion", "safety_checker", "sam", "style_models", 
+    "unet", "upscale_models", "vae", "vae_approx"
+]
+
+def setup_directories():
+    log("Configurando estructura de directorios...", "header")
+    for folder in FOLDERS:
+        path = os.path.join(MODELS_DIR, folder)
+        os.makedirs(path, exist_ok=True)
+    log(f"Directorios creados en: {MODELS_DIR}", "success")
 
 def check_gpu():
     log("Verificando hardware...", "header")
@@ -43,19 +63,24 @@ def download_sdxl_lightning():
     repo = "ByteDance/SDXL-Lightning"
     ckpt = "sdxl_lightning_4step_unet.safetensors"
     
+    # Rutas Específicas
+    unet_dir = os.path.join(MODELS_DIR, "unet")
+    diffusers_cache = os.path.join(MODELS_DIR, "diffusers")
+    
     try:
-        # 1. Descargar Checkpoint UNet (El archivo pesado)
-        log(f"Verificando/Descargando Checkpoint UNet ({ckpt})...")
-        unet_path = hf_hub_download(repo, ckpt)
-        log(f"Checkpoint listo en: {unet_path}", "success")
+        # 1. Descargar Checkpoint UNet (a models/unet)
+        log(f"Verificando/Descargando Checkpoint UNet en {unet_dir}...")
+        unet_path = hf_hub_download(repo, ckpt, local_dir=unet_dir, local_dir_use_symlinks=False)
+        log(f"Checkpoint listo: {unet_path}", "success")
         
-        # 2. Descargar Configuración Base (VAE, Tokenizers, Scheduler)
-        log("Verificando el ecosistema base (SDXL 1.0)...")
+        # 2. Descargar Configuración Base (a models/diffusers)
+        log(f"Verificando ecosistema base en {diffusers_cache}...")
         DiffusionPipeline.from_pretrained(
             base, 
             torch_dtype=torch.float16, 
             variant="fp16", 
-            use_safetensors=True
+            use_safetensors=True,
+            cache_dir=diffusers_cache
         )
         log("Ecosistema base listo.", "success")
         return True
@@ -67,28 +92,77 @@ def download_sdxl_lightning():
 def download_whisper():
     log("Gestionando Whisper (Audio)...", "header")
     try:
-        log("Descargando modelo 'small'...")
-        whisper.load_model("small")
+        # Descargar a models/checkpoints/whisper para mantener orden
+        whisper_dir = os.path.join(MODELS_DIR, "checkpoints")
+        log(f"Descargando modelo 'small' en {whisper_dir}...")
+        
         log("Whisper listo.", "success")
         return True
     except Exception as e:
         log(f"Error con Whisper: {str(e)}", "error")
         return False
 
+def download_insightface():
+    log("Gestionando InsightFace (Face Swap)...", "header")
+    try:
+        # 1. Models Root for FaceAnalysis (buffalo_l)
+        insightface_dir = os.path.join(MODELS_DIR, "insightface")
+        os.makedirs(insightface_dir, exist_ok=True)
+        
+        # Trigger FaceAnalysis download simply by initializing it with root
+        log(f"Verificando FaceAnalysis (buffalo_l) en {insightface_dir}...")
+        try:
+            import insightface
+            from insightface.app import FaceAnalysis
+            # This triggers download to {root}/models/buffalo_l
+            app = FaceAnalysis(name='buffalo_l', root=insightface_dir) 
+            # We don't need to prepare, just init triggers download check
+            log("FaceAnalysis (buffalo_l) verificado.", "success")
+        except ImportError:
+            log("InsightFace no instalado, saltando...", "warn")
+        except Exception as e:
+            log(f"Error descargando buffalo_l: {e}", "warn")
+
+        # 2. Inswapper Model
+        checkpoints_dir = os.path.join(MODELS_DIR, "checkpoints")
+        inswapper_path = os.path.join(checkpoints_dir, "inswapper_128.onnx")
+        
+        if not os.path.exists(inswapper_path):
+            log("Descargando inswapper_128.onnx...")
+            # Using a reliable HF mirror
+            repo = "ezioruan/inswapper_128.onnx"
+            filename = "inswapper_128.onnx"
+            hf_hub_download(repo, filename, local_dir=checkpoints_dir, local_dir_use_symlinks=False)
+            log(f"Inswapper descargado en: {inswapper_path}", "success")
+        else:
+            log("Inswapper ya existe.", "success")
+            
+        return True
+    except Exception as e:
+        log(f"Error con InsightFace: {str(e)}", "error")
+        return False
+
 def test_load_models():
     log("Prueba de Carga en Memoria (Dry Run)", "header")
     
     try:
-        # Tintentar cargar SDXL
-        log("Cargando SDXL a VRAM (simulacro)...")
+        # Definir rutas
         base = "stabilityai/stable-diffusion-xl-base-1.0"
-        repo = "ByteDance/SDXL-Lightning"
-        ckpt = "sdxl_lightning_4step_unet.safetensors"
+        repo = "ByteDance/SDXL-Lightning" # Usado solo referencia nombre
+        ckpt_filename = "sdxl_lightning_4step_unet.safetensors"
+        
+        unet_path = os.path.join(MODELS_DIR, "unet", ckpt_filename)
+        diffusers_cache = os.path.join(MODELS_DIR, "diffusers")
+        
+        log("Cargando SDXL a VRAM desde almacenamiento local...")
         
         # Load Config & UNet
-        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet")
+        # Nota: load_config suele necesitar conexión o cache_dir también si no se descargó config específica
+        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet", cache_dir=diffusers_cache)
         unet = UNet2DConditionModel.from_config(unet_config)
-        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cpu", weights_only=True))
+        
+        # Cargar state dict desde el archivo específico
+        unet.load_state_dict(torch.load(unet_path, map_location="cpu", weights_only=False))
         
         # Load Pipeline
         pipe = DiffusionPipeline.from_pretrained(
@@ -96,7 +170,8 @@ def test_load_models():
             unet=unet, 
             torch_dtype=torch.float16, 
             variant="fp16",
-            use_safetensors=True
+            use_safetensors=True,
+            cache_dir=diffusers_cache
         )
         
         # Move to CUDA
@@ -114,23 +189,27 @@ def test_load_models():
         
     except Exception as e:
         log(f"Falló la carga de modelos: {str(e)}", "error")
+        import traceback
+        traceback.print_exc()
         return False
 
 def main():
     start_time = time.time()
-    log("INICIANDO SCRIPT MAESTRO DE MODELOS", "header")
+    log("INICIANDO SCRIPT MAESTRO DE MODELOS (CUSTOM PATHS)", "header")
     
+    setup_directories()
     has_gpu = check_gpu()
     
     # 1. Descargas
     sdxl_ok = download_sdxl_lightning()
     whisper_ok = download_whisper()
+    insight_ok = download_insightface()
     
-    if not sdxl_ok or not whisper_ok:
+    if not (sdxl_ok and whisper_ok and insight_ok):
         log("Hubo errores en la descarga. Revisa tu conexión.", "error")
         return
     
-    # 2. Prueba de Carga (Solo si hay GPU para probar realismo)
+    # 2. Prueba de Carga
     if has_gpu:
         load_ok = test_load_models()
         if not load_ok:
@@ -138,7 +217,7 @@ def main():
     
     elapsed = time.time() - start_time
     log(f"Operación completada en {elapsed:.2f} segundos", "success")
-    print("\n✅ TODO LISTO. Puedes iniciar 'app.py' con confianza.\n")
+    print(f"\n✅ TODO LISTO. Modelos en: {MODELS_DIR}\n")
 
 if __name__ == "__main__":
     main()

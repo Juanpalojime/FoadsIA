@@ -1,24 +1,34 @@
+# Models (Ignorar archivos pesados pero mantener estructura)
+backend/models/**/*.safetensors
+backend/models/**/*.bin
+backend/models/**/*.onnx
+backend/models/**/*.pt
+backend/models/**/*.pth
+backend/models/**/*.ckpt
+backend/models/**/*.h5
+backend/models/**/models--*
+
+# Build & Dependencies
 node_modules/
 dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment & Logs
 .env
 .env.local
 *.log
 .DS_Store
-.pytest_cache/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-*.egg
-*.egg-info/
+
+# Data & Outputs
 data/
 *.mp4
 *.wav
 *.png
 *.jpg
 *.jpeg
-models/
-checkpoints/
+
+# External Repos inside backend
+backend/LivePortrait/
 backend/LivePortrait/

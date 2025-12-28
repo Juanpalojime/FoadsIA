@@ -103,7 +103,8 @@ def transcribe_and_subtitle(video_path, audio_path):
         
         if whisper_model is None:
             print("[*] Loading Whisper model to RAM...")
-            whisper_model = WhisperModel("base", device="cpu", compute_type="float16")
+            whisper_path = os.path.join(MODELS_DIR, "checkpoints")
+            whisper_model = WhisperModel("base", device="cpu", compute_type="float16", download_root=whisper_path)
             loaded_models['whisper'] = whisper_model
 
         offload_models(except_model='whisper')
@@ -337,6 +338,10 @@ def render_multi_scene():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+# Models Directory
+MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+
 # Existing SDXL / FaceSwap logic refined for production
 def load_sdxl_model():
     global pipe_image, loaded_models
@@ -350,21 +355,33 @@ def load_sdxl_model():
             # Fallback to old API for diffusers < 1.0.0
             from diffusers import StableDiffusionXLPipeline as DiffusionPipeline, UNet2DConditionModel, EulerAncestralDiscreteScheduler
         
-        from huggingface_hub import hf_hub_download
+        # from huggingface_hub import hf_hub_download # Not needed if we use local path directly
 
         base = "stabilityai/stable-diffusion-xl-base-1.0"
-        repo = "ByteDance/SDXL-Lightning"
-        ckpt = "sdxl_lightning_4step_unet.safetensors"
+        # repo = "ByteDance/SDXL-Lightning" 
+        ckpt_filename = "sdxl_lightning_4step_unet.safetensors"
         
-        print("Loading SDXL Lightning to RAM...")
+        # Rutas personalizadas
+        unet_path = os.path.join(MODELS_DIR, "unet", ckpt_filename)
+        diffusers_cache = os.path.join(MODELS_DIR, "diffusers")
+        
+        print(f"Loading SDXL Lightning to RAM from {MODELS_DIR}...")
         
         # Load UNet (Optimized Setup)
         # Load config first to avoid warnings and enable faster loading
-        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet")
+        unet_config = UNet2DConditionModel.load_config(base, subfolder="unet", cache_dir=diffusers_cache)
         unet = UNet2DConditionModel.from_config(unet_config)
         
         # Load lightning weights
-        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cpu", weights_only=True)) # weights_only=True for security/speed
+        if os.path.exists(unet_path):
+             print(f"[*] Loading UNet weights from local: {unet_path}")
+             unet.load_state_dict(torch.load(unet_path, map_location="cpu", weights_only=False)) 
+        else:
+             print(f"[!] UNet custom path not found: {unet_path}. Attempting implicit download (fallback)...")
+             from huggingface_hub import hf_hub_download
+             repo = "ByteDance/SDXL-Lightning"
+             unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt_filename), map_location="cpu", weights_only=False))
+
         
         # Create pipeline with efficient VAE loading
         pipe_image = DiffusionPipeline.from_pretrained(
@@ -372,7 +389,8 @@ def load_sdxl_model():
             unet=unet, 
             torch_dtype=torch.float16, 
             variant="fp16",
-            use_safetensors=True
+            use_safetensors=True,
+            cache_dir=diffusers_cache
         )
         
         pipe_image.scheduler = EulerAncestralDiscreteScheduler.from_config(

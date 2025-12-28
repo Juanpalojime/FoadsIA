@@ -1,6 +1,14 @@
 
-const getBaseUrl = () => {
-    return localStorage.getItem('FOADS_API_URL') || 'https://spriggiest-pluggable-roosevelt.ngrok-free.dev'; // Force HTTPS for Ngrok
+import { safeFetch, API_BASE_URL } from '@/lib/api-utils';
+
+/**
+ * Centralized helper to build the full endpoint URL.
+ * Falls back to the API_BASE_URL defined in api-utils (which reads from localStorage).
+ */
+const buildUrl = (path: string) => {
+    const base = API_BASE_URL.replace(/\/*$/, ''); // remove trailing slash
+    const cleanPath = path.replace(/^\/*/, ''); // remove leading slash
+    return `${base}/${cleanPath}`;
 };
 
 export interface GenerateImageResponse {
@@ -11,253 +19,108 @@ export interface GenerateImageResponse {
 
 export const api = {
     checkConnection: async (): Promise<boolean> => {
-        try {
-            const url = getBaseUrl();
-            if (!url) return false;
-            const res = await fetch(`${url}/`, {
-                headers: { 'ngrok-skip-browser-warning': 'true' }
-            });
-            const data = await res.json();
-            return data.status === 'online';
-        } catch (e) {
-            return false;
-        }
+        const { data, error } = await safeFetch('/');
+        return !error && data?.status === 'online';
     },
 
     generateImage: async (prompt: string, aspect_ratio: string = '1:1', steps: number = 4, guidance: number = 0, negative_prompt: string = ''): Promise<GenerateImageResponse> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) throw new Error('API URL not configured'); // Added this check back
-
-        try { // Re-added try-catch for consistency with other methods and GenerateImageResponse type
-            const response = await fetch(`${baseUrl}/generate-image`, {
+        try {
+            const { data, error } = await safeFetch('/generate-image', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                body: JSON.stringify({ prompt, aspect_ratio, steps, guidance, negative_prompt }),
-            });
-            if (!response.ok) {
-                const err = await response.json(); // Use response instead of res
-                throw new Error(err.message || 'Error al generar imagen');
-            }
-            return response.json();
+                body: JSON.stringify({ prompt, aspect_ratio, steps, guidance, negative_prompt })
+            }, undefined);
+            if (error) throw new Error(error);
+            return data as GenerateImageResponse;
         } catch (e: any) {
             console.error(e);
             return { status: 'error', message: e.message };
         }
     },
 
-    magicPrompt: async (prompt: string): Promise<{ status: string; prompt?: string; message?: string }> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) throw new Error('API URL not configured');
-
-        try {
-            const response = await fetch(`${baseUrl}/magic-prompt`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                body: JSON.stringify({ prompt }),
-            });
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.message || 'Error al optimizar prompt');
-            }
-            return response.json();
-        } catch (e: any) {
-            console.error(e);
-            return { status: 'error', message: e.message };
-        }
+    magicPrompt: async (prompt: string) => {
+        const { data, error } = await safeFetch('/magic-prompt', {
+            method: 'POST',
+            body: JSON.stringify({ prompt })
+        }, undefined);
+        if (error) return { status: 'error', message: error };
+        return data;
     },
 
     faceSwap: async (sourceImage: string, targetImage: string): Promise<GenerateImageResponse> => {
-        const url = getBaseUrl();
-        if (!url) throw new Error('API URL not configured');
-
-        try {
-            const res = await fetch(`${url}/face-swap`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                body: JSON.stringify({ source_image: sourceImage, target_image: targetImage })
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || 'Face swap failed');
-            }
-
-            return await res.json();
-        } catch (e: any) {
-            console.error(e);
-            return { status: 'error', message: e.message };
-        }
+        const { data, error } = await safeFetch('/face-swap', {
+            method: 'POST',
+            body: JSON.stringify({ source_image: sourceImage, target_image: targetImage })
+        }, undefined);
+        if (error) return { status: 'error', message: error };
+        return data as GenerateImageResponse;
     },
 
-    renderVideo: async (script: string, avatarId: string, voiceId: string, generateSubtitles: boolean = false): Promise<any> => {
-        const url = getBaseUrl();
-        if (!url) throw new Error('API URL not configured');
-
-        try {
-            const res = await fetch(`${url}/render-video`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                body: JSON.stringify({
-                    script,
-                    avatar_id: avatarId,
-                    voice_id: voiceId,
-                    generate_subtitles: generateSubtitles
-                })
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || 'Video render failed');
-            }
-
-            return await res.json();
-        } catch (e: any) {
-            console.error(e);
-            return { status: 'error', message: e.message };
-        }
+    renderVideo: async (script: string, avatarId: string, voiceId: string, generateSubtitles = false) => {
+        const { data, error } = await safeFetch('/render-video', {
+            method: 'POST',
+            body: JSON.stringify({ script, avatar_id: avatarId, voice_id: voiceId, generate_subtitles: generateSubtitles })
+        }, undefined);
+        if (error) return { status: 'error', message: error };
+        return data;
     },
 
-    renderMultiScene: async (scenes: any[]): Promise<any> => {
-        const url = getBaseUrl();
-        if (!url) throw new Error('API URL not configured');
-
-        try {
-            const res = await fetch(`${url}/render-multi-scene`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                body: JSON.stringify({ scenes })
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || 'Multi-scene render failed');
-            }
-
-            return await res.json();
-        } catch (e: any) {
-            console.error(e);
-            return { status: 'error', message: e.message };
-        }
+    renderMultiScene: async (scenes: any[]) => {
+        const { data, error } = await safeFetch('/render-multi-scene', {
+            method: 'POST',
+            body: JSON.stringify({ scenes })
+        }, undefined);
+        if (error) return { status: 'error', message: error };
+        return data;
     },
 
-    getGpuStatus: async (): Promise<any> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) return { status: 'offline' };
-        try {
-            const response = await fetch(`${baseUrl}/gpu-status`, {
-                headers: { 'ngrok-skip-browser-warning': 'true' }
-            });
-            return response.json();
-        } catch (e) {
-            return { status: 'offline' };
-        }
+    getGpuStatus: async () => {
+        const { data, error } = await safeFetch('/gpu-status');
+        return error ? { status: 'offline' } : data;
     },
 
-    livePortrait: async (image: string, audio?: string): Promise<any> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) throw new Error('API URL not configured');
-        try {
-            const response = await fetch(`${baseUrl}/live-portrait`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                body: JSON.stringify({ image, audio }),
-            });
-            return response.json();
-        } catch (e: any) {
-            return { status: 'error', message: e.message };
-        }
+    livePortrait: async (image: string, audio?: string) => {
+        const { data, error } = await safeFetch('/live-portrait', {
+            method: 'POST',
+            body: JSON.stringify({ image, audio })
+        }, undefined);
+        if (error) return { status: 'error', message: error };
+        return data;
     },
 
-    getAvatars: async (): Promise<any> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) throw new Error('API URL not configured');
-        try {
-            const response = await fetch(`${baseUrl}/avatars`, {
-                headers: { 'ngrok-skip-browser-warning': 'true' }
-            });
-            return response.json();
-        } catch (e: any) {
-            return { status: 'error', message: e.message };
-        }
+    getAvatars: async () => {
+        const { data, error } = await safeFetch('/avatars');
+        return error ? { status: 'error', message: error } : data;
     },
 
-    getVoices: async (): Promise<any> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) throw new Error('API URL not configured');
-        try {
-            const response = await fetch(`${baseUrl}/voices`, {
-                headers: { 'ngrok-skip-browser-warning': 'true' }
-            });
-            return response.json();
-        } catch (e: any) {
-            return { status: 'error', message: e.message };
-        }
+    getVoices: async () => {
+        const { data, error } = await safeFetch('/voices');
+        return error ? { status: 'error', message: error } : data;
     },
 
-    enhanceMedia: async (mediaUrl: string, type: 'image' | 'video' = 'image'): Promise<any> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) throw new Error('API URL not configured');
-        try {
-            const response = await fetch(`${baseUrl}/enhance-media`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ media_url: mediaUrl, type }),
-            });
-            return response.json();
-        } catch (e: any) {
-            return { status: 'error', message: e.message };
-        }
+    enhanceMedia: async (mediaUrl: string, type: 'image' | 'video' = 'image') => {
+        const { data, error } = await safeFetch('/enhance-media', {
+            method: 'POST',
+            body: JSON.stringify({ media_url: mediaUrl, type })
+        }, undefined);
+        if (error) return { status: 'error', message: error };
+        return data;
     },
 
-    // Phase 12: Real Production Bridge
-    health: async (): Promise<any> => {
-        const url = getBaseUrl();
-        if (!url) return { status: 'offline' };
-        try {
-            const res = await fetch(url);
-            return await res.json();
-        } catch (e) {
-            return { status: 'offline' };
-        }
+    health: async () => {
+        const { data, error } = await safeFetch('/');
+        return error ? { status: 'offline' } : data;
     },
 
-    syncAsset: async (asset: any): Promise<any> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) return null;
-        try {
-            const res = await fetch(`${baseUrl}/api/assets`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(asset)
-            });
-            return res.json();
-        } catch (e) { return null; }
+    syncAsset: async (asset: any) => {
+        const { data, error } = await safeFetch('/api/assets', {
+            method: 'POST',
+            body: JSON.stringify(asset)
+        }, undefined);
+        return error ? null : data;
     },
 
-    getJobStatus: async (jobId: string): Promise<any> => {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) return null;
-        try {
-            const res = await fetch(`${baseUrl}/api/jobs/${jobId}`);
-            return res.json();
-        } catch (e) { return null; }
+    getJobStatus: async (jobId: string) => {
+        const { data, error } = await safeFetch(`/api/jobs/${jobId}`);
+        return error ? null : data;
     }
 };

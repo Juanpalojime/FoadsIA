@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Save, Server, CheckCircle2, AlertCircle, Sparkles, Key, Image as ImageIcon, Check, User, Mail, CreditCard, Shield, Bell, Zap } from 'lucide-react';
+import { safeFetch } from '@/lib/api-utils';
+import { Save, Server, CheckCircle, AlertCircle, Sparkles, Image as ImageIcon, Check, User, CreditCard, Shield, Bell, Zap } from 'lucide-react';
 import { soundManager } from '@/lib/sounds';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -54,11 +55,9 @@ export default function Settings() {
 
         try {
             setStatus('idle');
-            const response = await fetch(`${cleanUrl}/`, {
-                headers: { 'ngrok-skip-browser-warning': 'true' }
-            });
-            const data = await response.json();
-            if (data.status === 'online') {
+            const { data, error } = await safeFetch<{ status: string }>('/');
+            if (error) throw new Error(error);
+            if (data?.status === 'online') {
                 setStatus('success');
             } else {
                 setStatus('error');
@@ -310,7 +309,7 @@ export default function Settings() {
                                     {status === 'success' && (
                                         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-green-500/10 border border-green-500/20 rounded-[2rem] p-6 flex items-center gap-4 text-green-500">
                                             <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center">
-                                                <CheckCircle2 size={24} />
+                                                <CheckCircle size={24} />
                                             </div>
                                             <div>
                                                 <p className="font-black text-sm uppercase tracking-wider">Engine Online</p>

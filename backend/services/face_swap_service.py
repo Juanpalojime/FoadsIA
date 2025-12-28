@@ -4,6 +4,7 @@ Optimizado para Google Colab T4 GPU
 """
 
 import cv2
+import os
 import numpy as np
 from typing import Optional
 import base64
@@ -29,19 +30,30 @@ class FaceSwapService:
             
             print("[*] Inicializando InsightFace...")
             
-            # Análisis de rostros
-            self.app = FaceAnalysis(name='buffalo_l')
+            # Definir rutas base
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            models_root = os.path.join(base_dir, "models", "insightface")
+            checkpoints_dir = os.path.join(base_dir, "models", "checkpoints")
+
+            # Análisis de rostros (buffalo_l se descargará/buscará en models/insightface)
+            self.app = FaceAnalysis(name='buffalo_l', root=models_root)
             self.app.prepare(ctx_id=0, det_size=(640, 640))
             
             # Modelo de swap
-            # Nota: inswapper_128.onnx debe estar en ~/.insightface/models/
-            try:
-                self.swapper = insightface.model_zoo.get_model('inswapper_128.onnx')
-            except:
-                print("[!] Modelo inswapper no encontrado, descargando...")
-                # Fallback: usar modelo alternativo o descargar
-                self.swapper = None
+            # Buscamos inswapper_128.onnx en models/checkpoints
+            swapper_path = os.path.join(checkpoints_dir, 'inswapper_128.onnx')
             
+            if os.path.exists(swapper_path):
+                self.swapper = insightface.model_zoo.get_model(swapper_path)
+            else:
+                print(f"[!] Modelo inswapper no encontrado en {swapper_path}")
+                # Fallback: intentar descarga automática o ubicación default
+                # InsightFace por defecto busca en ~/.insightface/models/
+                try:
+                     self.swapper = insightface.model_zoo.get_model('inswapper_128.onnx')
+                except:
+                     self.swapper = None
+
             self._initialized = True
             print("[✓] InsightFace inicializado")
             
