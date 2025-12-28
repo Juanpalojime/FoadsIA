@@ -30,10 +30,35 @@ class StyleService:
                 "prompt": "professional 3d model {prompt} . octane render, highly detailed, volumetric, dramatic lighting",
                 "negative_prompt": "ugly, deformed, noisy, low poly, blurry, painting"
             },
-             "MRE Cinematic Dynamic": {
+            "MRE Cinematic Dynamic": {
                 "name": "MRE Cinematic Dynamic",
                 "prompt": "epic cinematic shot of {prompt}, deep depth of field, 35mm crisp, bright colors, volumetric lighting, highly detailed, sharp",
                 "negative_prompt": "render, illustration, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry"
+            },
+            "Fooocus Cyberpunk": {
+                "name": "Fooocus Cyberpunk",
+                "prompt": "cyberpunk style {prompt} . neon lights, futuristic city, rainy streets, high tech, low life, vibrant colors, intricate cybernetic details, synthwave aesthetic",
+                "negative_prompt": "vintage, retro, medieval, nature, forest, sunlight, bright, sunny"
+            },
+            "Fooocus Fantasy": {
+                "name": "Fooocus Fantasy",
+                "prompt": "ethereal fantasy art {prompt} . magical atmosphere, intricate gold filigree, mystical lighting, otherworldly creatures, epic scale, masterpiece, digital painting",
+                "negative_prompt": "sci-fi, modern, urban, technology, photorealistic, realistic, photograph"
+            },
+            "Fooocus Digital Art": {
+                "name": "Fooocus Digital Art",
+                "prompt": "digital art {prompt} . sharp focus, vibrant colors, clean lines, professional digital painting, trending on artstation, masterpiece",
+                "negative_prompt": "sketch, messy, photograph, grainy, low resolution"
+            },
+            "Fooocus Neonpunk": {
+                "name": "Fooocus Neonpunk",
+                "prompt": "neonpunk aesthetic {prompt} . glow effects, fluorescent colors, dark background, electric vibes, futuristic, highly detailed",
+                "negative_prompt": "pastel, washed out, bright, sunny, natural"
+            },
+            "Fooocus Comic Book": {
+                "name": "Fooocus Comic Book",
+                "prompt": "comic book illustration {prompt} . bold lines, Ben-Day dots, vibrant primary colors, action-packed composition, superhero style",
+                "negative_prompt": "photograph, realistic, faded, blurry, 3d render"
             },
             "None": {
                 "name": "None",

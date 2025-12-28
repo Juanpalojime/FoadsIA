@@ -505,6 +505,21 @@ def generate_image():
         user_negative = data.get('negative_prompt', '')
         steps = data.get('steps', 4)
         guidance = data.get('guidance_scale', 0)
+        aspect_ratio = data.get('aspect_ratio', '1:1')
+        
+        # Mapping Aspect Ratio to SDXL standard dimensions (Fooocus Style)
+        ratio_map = {
+            '1:1': (1024, 1024),
+            '16:9': (1344, 768),
+            '9:16': (768, 1344),
+            '21:9': (1536, 640),
+            '9:21': (640, 1536),
+            '11:8': (1152, 832),
+            '8:11': (832, 1152),
+            '4:3': (1152, 896),
+            '3:4': (896, 1152)
+        }
+        width, height = ratio_map.get(aspect_ratio, (1024, 1024))
         
         # Load model and auto-adjust parameters if it's Juggernaut (non-lightning)
         pipe = load_sdxl_model()
@@ -558,6 +573,8 @@ def generate_image():
             negative_prompt=final_negative,
             num_inference_steps=steps, 
             guidance_scale=guidance, 
+            width=width,
+            height=height,
             callback=progress_callback, 
             callback_steps=1
         ).images[0]

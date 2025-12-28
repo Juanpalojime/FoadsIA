@@ -66,6 +66,10 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
             </div>
 
             <div className="flex items-center gap-3 lg:gap-6">
+                <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground hidden sm:flex">
+                    <Bell size={20} />
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></span>
+                </Button>
                 {/* TOKEN COUNTER - LEONARDO STYLE */}
                 <div className="flex items-center gap-3 pl-4 pr-1">
                     <div className="flex flex-col items-end">

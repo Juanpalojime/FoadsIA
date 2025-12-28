@@ -51,7 +51,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
             <motion.aside
                 initial={false}
                 animate={{ width: collapsed ? 80 : 288 }}
-                className="h-full bg-card border-r border-border flex flex-col shadow-2xl z-50 relative transition-all duration-300 ease-in-out"
+                className="h-full bg-card/60 backdrop-blur-xl border-r border-[rgba(255,255,255,0.08)] flex flex-col shadow-2xl z-50 relative transition-all duration-300 ease-in-out"
             >
                 {/* Toggle Button (Desktop) */}
                 <button

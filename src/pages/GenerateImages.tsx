@@ -43,6 +43,7 @@ export default function GenerateImages() {
         };
     }, []);
     const [steps, setSteps] = useState(4); // Optimizado para SDXL Lightning (Hiperrealismo)
+    const [performance, setPerformance] = useState('speed');
     const [guidance, setGuidance] = useState(2.0); // Guidance bajo para mayor realismo
     const [negativePrompt, setNegativePrompt] = useState('');
     const [styles, setStyles] = useState<string[]>(['Fooocus V2', 'Fooocus Cinematic', 'Fooocus Photograph', 'SAI Anime', 'SAI 3D Model', 'MRE Cinematic Dynamic', 'None']);
@@ -127,6 +128,9 @@ export default function GenerateImages() {
                                 <Sparkles className="w-8 h-8" />
                             </span>
                             Imagen Pro Hub
+                            <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/20 ml-2 animate-pulse">
+                                {performance === 'speed' ? 'Lightning Engine' : 'Juggernaut XL Engine'}
+                            </Badge>
                         </h1>
                         <p className="text-muted-foreground font-medium text-lg">Renderizado fotorrealista de alto nivel impulsado por SDXL.</p>
                     </div>
@@ -176,27 +180,60 @@ export default function GenerateImages() {
                                             />
                                         </div>
 
+                                        {/* Performance Mode */}
+                                        <div className="flex flex-col gap-4">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Rendimiento (Modo)</label>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {[
+                                                    { id: 'speed', label: 'Velocidad', desc: '4-8 pasos (Lightning)', icon: Zap },
+                                                    { id: 'quality', label: 'Calidad Pro', desc: '30-40 pasos (Juggernaut)', icon: Sparkles },
+                                                ].map((mode) => (
+                                                    <button
+                                                        key={mode.id}
+                                                        onClick={() => {
+                                                            setPerformance(mode.id);
+                                                            setSteps(mode.id === 'speed' ? 4 : 30);
+                                                            setGuidance(mode.id === 'speed' ? 2 : 7);
+                                                        }}
+                                                        className={cn(
+                                                            'flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border transition-all transform active:scale-95 text-center',
+                                                            performance === mode.id
+                                                                ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]'
+                                                                : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                                                        )}
+                                                    >
+                                                        <mode.icon size={14} className="mb-1" />
+                                                        <span className="text-xs font-black">{mode.label}</span>
+                                                        <span className="text-[8px] font-bold opacity-70 tracking-tight leading-none">{mode.desc}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         {/* Aspect Ratio */}
                                         <div className="flex flex-col gap-4">
-                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Dimensiones</label>
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Dimensiones (Aspect Ratio)</label>
+                                            <div className="grid grid-cols-3 gap-2">
                                                 {[
-                                                    { id: '1:1', label: '1:1', desc: 'Square 1024x1024' },
-                                                    { id: '16:9', label: '16:9', desc: 'Cinematic 1344x768' },
-                                                    { id: '9:16', label: '9:16', desc: 'Social 768x1344' },
+                                                    { id: '1:1', label: '1:1', desc: 'Square' },
+                                                    { id: '11:8', label: '11:8', desc: 'Default' },
+                                                    { id: '8:11', label: '8:11', desc: 'Portrait' },
+                                                    { id: '16:9', label: '16:9', desc: 'Cinema' },
+                                                    { id: '9:16', label: '9:16', desc: 'Mobile' },
+                                                    { id: '21:9', label: '21:9', desc: 'UltraWide' },
                                                 ].map((ratio) => (
                                                     <button
                                                         key={ratio.id}
                                                         onClick={() => setAspectRatio(ratio.id)}
                                                         className={cn(
-                                                            'flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border transition-all transform active:scale-95 text-center',
+                                                            'flex flex-col items-center gap-1 py-3 px-1 rounded-xl border transition-all text-center',
                                                             aspectRatio === ratio.id
-                                                                ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]'
+                                                                ? 'bg-primary border-primary text-primary-foreground shadow-md'
                                                                 : 'bg-background border-border text-muted-foreground hover:bg-muted'
                                                         )}
                                                     >
-                                                        <span className="text-xs font-black">{ratio.label}</span>
-                                                        <span className="text-[8px] font-bold opacity-70 tracking-tight leading-none">{ratio.desc}</span>
+                                                        <span className="text-[10px] font-black">{ratio.label}</span>
+                                                        <span className="text-[7px] font-bold opacity-60 uppercase">{ratio.desc}</span>
                                                     </button>
                                                 ))}
                                             </div>
@@ -271,7 +308,7 @@ export default function GenerateImages() {
                                             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                                             <div className="relative flex items-center gap-3">
                                                 {isGenerating ? <RefreshCw className="animate-spin" size={20} /> : <Sparkles size={20} className="fill-white/20" />}
-                                                {isGenerating ? 'Generando...' : 'Generar (4 Tokens)'}
+                                                {isGenerating ? 'Generando...' : `Generar (${performance === 'speed' ? '4' : '15'} Tokens)`}
                                             </div>
                                         </Button>
                                     </TabsContent>

@@ -72,31 +72,46 @@ export async function safeFetch<T>(
             headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch(url, {
+        let response = await fetch(url, {
             ...fetchOptions,
             headers,
         });
 
+        // 401 Unauthorized Retry Logic
+        if (response.status === 401) {
+            console.warn("Auth token invalid (401). Attempting silent re-login...");
+            localStorage.removeItem('FOADS_AUTH_TOKEN');
+            authToken = null; // Reset local state
+
+            const newToken = await getAuthToken(baseUrl);
+            if (newToken) {
+                headers['Authorization'] = `Bearer ${newToken}`;
+                response = await fetch(url, {
+                    ...fetchOptions,
+                    headers,
+                });
+            }
+        }
+
         if (!response.ok) {
-            let errorDetails = '';
+            let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
             try {
                 const errorData = await response.json();
-                errorDetails = errorData.message || errorData.error || '';
+                errorMessage = errorData.message || errorData.error || errorMessage;
             } catch (e) {
-                // Ignore json parse error
+                // Not JSON
             }
-            throw new Error(errorDetails || `HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(errorMessage);
         }
 
         const data = await response.json();
         return { data, error: null, isDemo: false };
 
-    } catch (error) {
+    } catch (error: any) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.warn(`API call failed: ${endpoint}`, errorMessage);
+        console.error(`API Error [${endpoint}]:`, errorMessage);
 
         if (fallbackData) {
-            console.log(`Using fallback data for ${endpoint}`);
             return { data: fallbackData, error: null, isDemo: true };
         }
 
