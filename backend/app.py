@@ -399,6 +399,14 @@ def load_sdxl_model():
         )
         
         pipe_image.to("cuda")
+        
+        # xFormers Optimization
+        try:
+            pipe_image.enable_xformers_memory_efficient_attention()
+            print("[*] xFormers memory efficient attention enabled")
+        except Exception as e:
+            print(f"[!] xFormers not available, using standard attention: {e}")
+
         loaded_models['sdxl'] = pipe_image
         print("[✓] SDXL Lightning loaded successfully")
     
@@ -428,10 +436,79 @@ def magic_prompt():
         else:
             enhanced = f"{quality_keywords}, {prompt}, vibrant colors, professional composition"
         
+        # Phi-3 Mini Integration (Local LLM)
+        use_llm = data.get('use_llm', True) # Default to True if requested by features
+        
+        if use_llm:
+             try:
+                 print("[*] Loading Phi-3 Mini for Magic Prompt...")
+                 # Offload SDXL to make room for LLM on T4 (approx 4GB VRAM needed for 4-bit Phi-3)
+                 offload_models() 
+                 
+                 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+                 
+                 phi3_path = os.path.join(MODELS_DIR, "prompt_expansion", "Phi-3-mini-4k-instruct")
+                 
+                 # Check if local or use HF hub with cache
+                 model_id = "microsoft/Phi-3-mini-4k-instruct"
+                 
+                 # 4-bit loading for T4 Optimization
+                 # Requires bitsandbytes library
+                 tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+                 model = AutoModelForCausalLM.from_pretrained(
+                     model_id, 
+                     device_map="cuda", 
+                     trust_remote_code=True, 
+                     torch_dtype="auto", 
+                     load_in_4bit=True
+                 )
+                 
+                 pipe = pipeline(
+                     "text-generation",
+                     model=model,
+                     tokenizer=tokenizer,
+                 )
+                 
+                 messages = [
+                     {"role": "system", "content": "You are a helpful AI assistant for Stable Diffusion prompting. Enhance the user's prompt with artistic details, lighting, and style keywords. Keep it under 75 tokens. Output ONLY the enhanced prompt."},
+                     {"role": "user", "content": f"Enhance this prompt for a photorealistic image: '{prompt}'"},
+                 ]
+                 
+                 generation_args = {
+                     "max_new_tokens": 100,
+                     "return_full_text": False,
+                     "temperature": 0.7,
+                     "do_sample": True,
+                 }
+                 
+                 output = pipe(messages, **generation_args)
+                 enhanced_llm = output[0]['generated_text']
+                 
+                 print(f"[✓] Phi-3 Enhanced: {enhanced_llm}")
+                 
+                 # Cleanup LLM to free VRAM for SDXL
+                 del model
+                 del pipe
+                 del tokenizer
+                 torch.cuda.empty_cache()
+                 
+                 return jsonify({
+                    "status": "success", 
+                    "prompt": enhanced_llm,
+                    "original": prompt,
+                    "method": "Phi-3 Mini (Local LLM)"
+                 })
+
+             except Exception as llm_error:
+                 print(f"[!] Phi-3 Error: {llm_error}. Falling back to rule-based.")
+                 # Fallback to rule-based logic below
+                 pass
+        
         return jsonify({
             "status": "success", 
             "prompt": enhanced,
-            "original": prompt
+            "original": prompt,
+            "method": "Rule-Based (Fallback)"
         })
         
     except Exception as e:
