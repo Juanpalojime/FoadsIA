@@ -14,6 +14,32 @@ interface FetchOptions extends RequestInit {
 /**
  * Enhanced fetch with error handling and fallbacks
  */
+// Token management
+let authToken: string | null = localStorage.getItem('FOADS_AUTH_TOKEN');
+
+async function getAuthToken(baseUrl: string): Promise<string | null> {
+    if (authToken) return authToken;
+
+    try {
+        // Try anonymous login
+        const response = await fetch(`${baseUrl}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: 'demo_user' })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            authToken = data.token;
+            localStorage.setItem('FOADS_AUTH_TOKEN', authToken!);
+            return authToken;
+        }
+    } catch (e) {
+        console.warn("Auto-login failed:", e);
+    }
+    return null;
+}
+
 export async function safeFetch<T>(
     endpoint: string,
     options: FetchOptions = {},
@@ -23,21 +49,32 @@ export async function safeFetch<T>(
 
     try {
         let url = endpoint;
+        let baseUrl = getApiBaseUrl();
+
         if (!endpoint.startsWith('http')) {
-            const baseUrl = getApiBaseUrl();
             // Remove double slashes if base url has one and endpoint has one
             const base = baseUrl.replace(/\/$/, "");
             const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
             url = `${base}${path}`;
+        } else {
+            baseUrl = new URL(url).origin;
+        }
+
+        // Auto-Auth Injection
+        const token = await getAuthToken(baseUrl);
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+            ...(fetchOptions.headers as Record<string, string>),
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
         const response = await fetch(url, {
             ...fetchOptions,
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-                ...fetchOptions.headers,
-            },
+            headers,
         });
 
         if (!response.ok) {

@@ -45,6 +45,22 @@ export default function GenerateImages() {
     const [steps, setSteps] = useState(4); // Optimizado para SDXL Lightning (Hiperrealismo)
     const [guidance, setGuidance] = useState(2.0); // Guidance bajo para mayor realismo
     const [negativePrompt, setNegativePrompt] = useState('');
+    const [styles, setStyles] = useState<string[]>(['Fooocus V2', 'Fooocus Cinematic', 'Fooocus Photograph', 'SAI Anime', 'SAI 3D Model', 'MRE Cinematic Dynamic', 'None']);
+    const [selectedStyle, setSelectedStyle] = useState('Fooocus V2');
+
+    useEffect(() => {
+        const fetchStyles = async () => {
+            try {
+                const res = await api.getStyles();
+                if (res.status === 'success' && res.styles) {
+                    setStyles(res.styles);
+                }
+            } catch (e) {
+                console.warn("Failed to fetch styles, using defaults");
+            }
+        };
+        fetchStyles();
+    }, []);
 
     const handleMagicPrompt = async () => {
         if (!prompt || isOptimizing) return;
@@ -77,7 +93,7 @@ export default function GenerateImages() {
         setError(null);
 
         try {
-            const response = await api.generateImage(prompt, aspectRatio, steps, guidance, negativePrompt);
+            const response = await api.generateImage(prompt, aspectRatio, steps, guidance, negativePrompt, selectedStyle);
             if (response.status === 'success' && response.image) {
                 setResultImage(response.image);
                 soundManager.playSuccess();
@@ -231,6 +247,20 @@ export default function GenerateImages() {
                                                 </AccordionContent>
                                             </AccordionItem>
                                         </Accordion>
+
+                                        <div className="flex flex-col gap-4">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Estilo Artístico</label>
+                                            <select
+                                                value={selectedStyle}
+                                                onChange={(e) => setSelectedStyle(e.target.value)}
+                                                className="w-full bg-muted/30 border-2 border-border rounded-2xl p-3 text-xs font-bold focus:border-primary focus:outline-none transition-colors appearance-none cursor-pointer"
+                                                style={{ backgroundImage: 'none' }}
+                                            >
+                                                {styles.map((style) => (
+                                                    <option key={style} value={style}>{style}</option>
+                                                ))}
+                                            </select>
+                                        </div>
 
                                         <Button
                                             onClick={handleGenerate}

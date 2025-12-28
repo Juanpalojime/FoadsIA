@@ -14,11 +14,11 @@ export const api = {
         return !error && data?.status === 'online';
     },
 
-    generateImage: async (prompt: string, aspect_ratio: string = '1:1', steps: number = 4, guidance: number = 0, negative_prompt: string = ''): Promise<GenerateImageResponse> => {
+    generateImage: async (prompt: string, aspect_ratio: string = '1:1', steps: number = 4, guidance: number = 0, negative_prompt: string = '', style: string = 'Fooocus V2'): Promise<GenerateImageResponse> => {
         try {
             const { data, error } = await safeFetch<GenerateImageResponse>('/generate-image', {
                 method: 'POST',
-                body: JSON.stringify({ prompt, aspect_ratio, steps, guidance, negative_prompt })
+                body: JSON.stringify({ prompt, aspect_ratio, steps, guidance, negative_prompt, style })
             }, undefined);
             if (error) throw new Error(error);
             return (data || { status: 'error', message: 'No data returned' }) as GenerateImageResponse;
@@ -85,6 +85,11 @@ export const api = {
 
     getVoices: async () => {
         const { data, error } = await safeFetch('/voices');
+        return error ? { status: 'error', message: error } : data;
+    },
+
+    getStyles: async () => {
+        const { data, error } = await safeFetch('/styles');
         return error ? { status: 'error', message: error } : data;
     },
 

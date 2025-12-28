@@ -23,6 +23,7 @@ try:
     from services.upscale_service import get_esrgan_service
     from services.liveportrait_service import get_liveportrait_service
     from services.subtitle_service import get_subtitle_service
+    from services.style_service import get_style_service
     from middleware.rate_limiter import get_rate_limiter, rate_limit
     from middleware.auth import require_auth, generate_token
     from utils.logger import logger
@@ -488,13 +489,20 @@ def generate_image():
     try:
         data = request.json
         prompt = data.get('prompt')
+        style = data.get('style', 'Fooocus V2') # Default to Fooocus V2 for better quality
+        user_negative = data.get('negative_prompt', '')
         steps = data.get('steps', 4)
         guidance = data.get('guidance_scale', 0)
         
         if not prompt:
             return jsonify({"status": "error", "message": "Prompt vacío o no proporcionado"}), 400
+            
+        # Apply Style
+        style_service = get_style_service()
+        final_prompt, final_negative = style_service.apply_style(style, prompt, user_negative)
         
-        logger.info(f"Generating image for prompt: {prompt[:50]}...", extra={"steps": steps, "guidance": guidance})
+        logger.info(f"Generating image. Style: {style}, Prompt: {prompt[:30]}...", extra={"steps": steps})
+        # print(f"[*] Final Prompt: {final_prompt}")
         
         # Cache check
         try:
@@ -523,7 +531,8 @@ def generate_image():
         
         print(f"[*] Running SDXL inference...")
         image = pipe(
-            prompt, 
+            prompt=final_prompt, 
+            negative_prompt=final_negative,
             num_inference_steps=steps, 
             guidance_scale=guidance, 
             callback=progress_callback, 
@@ -630,6 +639,14 @@ def get_voices():
     ]
     
     return jsonify({ "status": "success", "voices": voices })
+
+@app.route('/styles', methods=['GET'])
+def get_styles():
+    """Retorna lista de estilos disponibles."""
+    return jsonify({ 
+        "status": "success", 
+        "styles": get_style_service().get_styles() 
+    })
 
 if __name__ == '__main__':
     print("\n" + "="*60)
