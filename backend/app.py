@@ -165,22 +165,20 @@ def load_sdxl_model():
         
         # Load UNet config
         unet_config = UNet2DConditionModel.load_config(base, subfolder="unet", cache_dir=diffusers_cache)
-        unet = UNet2DConditionModel.from_config(unet_config)
+        # OPTIMIZATION: Initialize directly in float16 to save ~5GB RAM
+        unet = UNet2DConditionModel.from_config(unet_config, torch_dtype=torch.float16)
         
         # Load lightning weights
         is_valid = verify_file_integrity(unet_path, min_size_mb=400)
         
+        state_dict = None
         if is_valid:
             print(f"[*] Loading UNet weights from local: {unet_path}")
-            # Explicit safe loading
             state_dict = load_file(unet_path, device="cpu")
-            unet.load_state_dict(state_dict, strict=True)
         else:
             if os.path.exists(unet_path):
                 print(f"[!] UNet path exists but is corrupt. Deleting and re-downloading...")
                 os.remove(unet_path)
-            else:
-                print(f"[!] UNet custom path not found: {unet_path}. Attempting download...")
             
             from huggingface_hub import hf_hub_download
             repo = "ByteDance/SDXL-Lightning"
@@ -194,10 +192,12 @@ def load_sdxl_model():
                 local_dir=unet_dir, 
                 local_dir_use_symlinks=False
             )
-            
-            # Explicit safe loading
             state_dict = load_file(downloaded_path, device="cpu")
-            unet.load_state_dict(state_dict, strict=True)
+
+        # Load into model and clear RAM immediately
+        unet.load_state_dict(state_dict, strict=True)
+        del state_dict
+        import gc; gc.collect()
         
         # Create pipeline
         print(f"[*] Loading base SDXL pipeline...")
